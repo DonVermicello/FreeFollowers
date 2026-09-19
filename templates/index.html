@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreeFollowers — The followers you never wanted</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --white:   #ffffff;
+      --dim:     rgba(255,255,255,0.55);
+      --dimmer:  rgba(255,255,255,0.25);
+      --accent:  #e63946;
+      --bg:      #05050a;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── GLOBE CANVAS (fixed, behind everything) ── */
+    #globe-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── DARK OVERLAY (grows as you scroll) ── */
+    #scroll-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #05050a;
+      opacity: 0;
+      z-index: 1;
+      pointer-events: none;
+      transition: opacity 0.05s linear;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 48px;
+      background: linear-gradient(to bottom, rgba(5,5,10,0.7), transparent);
+    }
+
+    nav .logo {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--dimmer);
+    }
+
+    nav a {
+      font-size: 13px;
+      color: var(--dimmer);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--white); }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    nav .nav-cta {
+      padding: 10px 16px;
+      border-radius: 4px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow: 0 0 22px rgba(230,57,70,0.28);
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+
+    nav .nav-cta:hover {
+      color: #fff;
+      background: #c1121f;
+      transform: translateY(-1px);
+      box-shadow: 0 3px 28px rgba(230,57,70,0.4);
+    }
+
+    /* ── SECTIONS ── */
+    section {
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ── HERO ── */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      text-align: center;
+      padding: 100px 24px 72px;
+    }
+
+    .eye-wrap {
+      width: 180px;
+      height: 180px;
+      max-width: 60vw;
+      margin-bottom: 24px;
+      filter: drop-shadow(0 0 24px rgba(180,0,0,0.65))
+              drop-shadow(0 0 8px rgba(180,0,0,0.3));
+      animation: float 5s ease-in-out infinite;
+    }
+    #eye-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0);    }
+      50%      { transform: translateY(-7px); }
+    }
+
+    #hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4.2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      max-width: 700px;
+      margin-bottom: 16px;
+    }
+
+    #hero h1 span {
+      color: var(--accent);
+    }
+
+    #hero p.tagline {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--dim);
+      max-width: 480px;
+      line-height: 1.6;
+      margin-bottom: 48px;
+    }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      display: inline-block;
+      padding: 15px 36px;
+      background: var(--accent);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 4px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 0 32px rgba(230,57,70,0.35);
+    }
+    .btn-primary:hover {
+      background: #c1121f;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 40px rgba(230,57,70,0.5);
+    }
+
+    .btn-ghost {
+      display: inline-block;
+      padding: 14px 32px;
+      background: transparent;
+      color: var(--dim);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 4px;
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.15);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, transform 0.15s;
+    }
+    .btn-ghost:hover {
+      border-color: rgba(255,255,255,0.4);
+      color: var(--white);
+      transform: translateY(-2px);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ── SCROLL INDICATOR ── */
+    .scroll-hint {
+      position: absolute;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--dimmer);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      animation: fadebob 2s ease-in-out infinite;
+    }
+    .scroll-hint .arrow {
+      width: 1px; height: 32px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.3));
+    }
+    @keyframes fadebob {
+      0%,100% { opacity: 0.4; transform: translateX(-50%) translateY(0); }
+      50%      { opacity: 0.9; transform: translateX(-50%) translateY(4px); }
+    }
+
+    /* ── CONTENT SECTION ── */
+    #content {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 24px;
+      text-align: center;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 24px;
+    }
+
+    #content h2 {
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      max-width: 720px;
+      margin-bottom: 28px;
+    }
+
+    #content h2 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    /* ── STAT CARDS ── */
+    .stats {
+      display: flex;
+      gap: 2px;
+      margin: 56px 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 32px 40px;
+      min-width: 180px;
+    }
+    .stat-card:first-child { border-radius: 8px 0 0 8px; }
+    .stat-card:last-child  { border-radius: 0 8px 8px 0; }
+
+    .stat-card .number {
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .stat-card .label {
+      font-size: 12px;
+      color: var(--dimmer);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ── BODY TEXT ── */
+    .body-text {
+      max-width: 580px;
+      color: var(--dim);
+      font-size: 1.05rem;
+      line-height: 1.75;
+      margin-bottom: 24px;
+    }
+
+    /* ── ABOUT SECTION ── */
+    #about {
+      min-height: 60vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 24px 160px;
+      text-align: center;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    #about h2 {
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 28px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 12px;
+      color: var(--dimmer);
+      letter-spacing: 0.04em;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    footer a {
+      color: var(--dimmer);
+      text-decoration: none;
+    }
+    footer a:hover { color: var(--dim); }
+
+    /* ── GRID LINE OVERLAY ── */
+    .grid-lines {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 2;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 80px 80px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+    }
+
+    @media (max-width: 640px) {
+      nav {
+        padding: 18px 20px;
+      }
+
+      nav .nav-actions > a:first-child {
+        display: none;
+      }
+
+      nav .nav-cta {
+        padding: 9px 12px;
+        font-size: 11px;
+      }
+
+      #hero {
+        padding-top: 86px;
+      }
+
+      .eye-wrap {
+        width: 150px;
+        height: 150px;
+        margin-bottom: 20px;
+      }
+
+      #hero p.tagline {
+        margin-bottom: 30px;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+<!-- fixed globe canvas -->
+<canvas id="globe-canvas"></canvas>
+
+<!-- scroll darkening overlay -->
+<div id="scroll-overlay"></div>
+
+<!-- subtle grid -->
+<div class="grid-lines"></div>
+
+<!-- nav -->
+<nav>
+  <span class="logo">FreeFollowers</span>
+  <div class="nav-actions">
+    <a href="#about">About</a>
+    <a href="/graph/demo" class="nav-cta">Who's following me?</a>
+  </div>
+</nav>
+
+<!-- hero -->
+<section id="hero">
+  <div class="eye-wrap" id="eye-wrap">
+    <svg id="eye-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="sclera-g" cx="42%" cy="38%" r="58%">
+          <stop offset="0%"   stop-color="#f8f2f2"/>
+          <stop offset="70%"  stop-color="#f0e0e0"/>
+          <stop offset="100%" stop-color="#dcc0c0"/>
+        </radialGradient>
+        <radialGradient id="iris-g" cx="45%" cy="40%" r="55%">
+          <stop offset="0%"   stop-color="#8b0000"/>
+          <stop offset="40%"  stop-color="#5a0000"/>
+          <stop offset="80%"  stop-color="#2a0000"/>
+          <stop offset="100%" stop-color="#110000"/>
+        </radialGradient>
+        <radialGradient id="pupil-g" cx="38%" cy="35%" r="55%">
+          <stop offset="0%"   stop-color="#1a0000"/>
+          <stop offset="100%" stop-color="#000000"/>
+        </radialGradient>
+        <radialGradient id="limbal-g" cx="50%" cy="50%" r="50%">
+          <stop offset="78%"  stop-color="rgba(0,0,0,0)"/>
+          <stop offset="100%" stop-color="rgba(0,0,0,0.9)"/>
+        </radialGradient>
+        <radialGradient id="shine-g" cx="30%" cy="30%" r="60%">
+          <stop offset="0%"   stop-color="rgba(255,255,255,0.9)"/>
+          <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+        </radialGradient>
+        <filter id="glow-red" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="vessel-blur">
+          <feGaussianBlur stdDeviation="0.3"/>
+        </filter>
+        <clipPath id="ball-clip">
+          <circle cx="60" cy="60" r="50"/>
+        </clipPath>
+      </defs>
+
+      <!-- outer red glow -->
+      <circle cx="60" cy="60" r="54" fill="rgba(160,0,0,0.15)" filter="url(#glow-red)"/>
+
+      <!-- everything inside the eyeball -->
+      <g clip-path="url(#ball-clip)">
+
+        <!-- sclera -->
+        <circle cx="60" cy="60" r="50" fill="url(#sclera-g)"/>
+
+        <!-- blood vessels -->
+        <g filter="url(#vessel-blur)" opacity="0.85">
+          <!-- right side vessels -->
+          <path d="M108,52 Q90,54 78,58" stroke="#cc1111" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+          <path d="M108,60 Q92,60 80,62" stroke="#cc1111" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M108,68 Q93,66 82,65" stroke="#cc1111" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+          <path d="M100,45 Q88,48 80,54" stroke="#bb1111" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+          <!-- branches right -->
+          <path d="M96,55 Q91,50 87,48" stroke="#cc1111" stroke-width="0.6" fill="none" stroke-linecap="round"/>
+          <path d="M94,63 Q89,68 85,70" stroke="#cc1111" stroke-width="0.6" fill="none" stroke-linecap="round"/>
+          <path d="M90,58 Q86,54 83,52 Q80,50 78,48" stroke="#dd1111" stroke-width="0.5" fill="none" stroke-linecap="round"/>
+          <!-- left side vessels -->
+          <path d="M12,52 Q30,54 42,58" stroke="#cc1111" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          <path d="M12,62 Q28,61 40,63" stroke="#cc1111" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+          <path d="M18,70 Q32,67 42,65" stroke="#bb1111" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+          <!-- branches left -->
+          <path d="M24,56 Q29,51 33,49" stroke="#cc1111" stroke-width="0.6" fill="none" stroke-linecap="round"/>
+          <path d="M26,65 Q31,70 35,71" stroke="#cc1111" stroke-width="0.5" fill="none" stroke-linecap="round"/>
+          <!-- top -->
+          <path d="M42,14 Q46,30 47,42" stroke="#bb1111" stroke-width="0.7" fill="none" stroke-linecap="round"/>
+          <path d="M60,11 Q60,26 60,40" stroke="#bb1111" stroke-width="0.6" fill="none" stroke-linecap="round"/>
+          <path d="M78,14 Q74,30 73,42" stroke="#bb1111" stroke-width="0.7" fill="none" stroke-linecap="round"/>
+          <!-- bottom -->
+          <path d="M44,106 Q47,92 48,80" stroke="#bb1111" stroke-width="0.7" fill="none" stroke-linecap="round"/>
+          <path d="M76,106 Q73,92 72,80" stroke="#bb1111" stroke-width="0.7" fill="none" stroke-linecap="round"/>
+        </g>
+
+        <!-- IRIS GROUP — moves with mouse -->
+        <g id="iris-group">
+          <!-- limbal ring -->
+          <circle cx="60" cy="60" r="28" fill="#060000"/>
+          <!-- iris base -->
+          <circle cx="60" cy="60" r="26" fill="url(#iris-g)"/>
+          <!-- iris radial texture -->
+          <g stroke="#aa0000" stroke-linecap="round" opacity="0.5">
+            <line x1="60" y1="36" x2="60" y2="84" stroke-width="0.7"/>
+            <line x1="41" y1="41" x2="79" y2="79" stroke-width="0.6"/>
+            <line x1="36" y1="60" x2="84" y2="60" stroke-width="0.7"/>
+            <line x1="41" y1="79" x2="79" y2="41" stroke-width="0.6"/>
+            <line x1="49" y1="37" x2="71" y2="83" stroke-width="0.5"/>
+            <line x1="49" y1="83" x2="71" y2="37" stroke-width="0.5"/>
+            <line x1="37" y1="49" x2="83" y2="71" stroke-width="0.5"/>
+            <line x1="37" y1="71" x2="83" y2="49" stroke-width="0.5"/>
+          </g>
+          <!-- inner iris ring -->
+          <circle cx="60" cy="60" r="26" fill="url(#limbal-g)"/>
+          <!-- collarette ring -->
+          <circle cx="60" cy="60" r="19" fill="none" stroke="rgba(80,5,5,0.4)" stroke-width="1.5"/>
+          <!-- pupil -->
+          <circle cx="60" cy="60" r="13" fill="url(#pupil-g)"/>
+          <!-- corneal shine main -->
+          <ellipse cx="54" cy="52" rx="6" ry="4"
+                   fill="url(#shine-g)" transform="rotate(-20,54,52)"/>
+          <!-- secondary shine -->
+          <circle cx="67" cy="67" r="2" fill="rgba(255,255,255,0.15)"/>
+        </g>
+
+      </g>
+
+      <!-- eyeball outline -->
+      <circle cx="60" cy="60" r="50" fill="none"
+              stroke="rgba(100,30,30,0.4)" stroke-width="1"/>
+
+    </svg>
+  </div>
+
+  <h1>The followers you <span>never wanted.</span></h1>
+  <p class="tagline">
+    See which companies are quietly following you across the web — and how they connect.
+  </p>
+
+  <div class="scroll-hint">
+    <span>Scroll to explore</span>
+    <div class="arrow"></div>
+  </div>
+</section>
+
+<!-- content -->
+<section id="content">
+  <p class="eyebrow">Why it matters</p>
+  <h2>You are not browsing the web.<br>The web is <em>browsing you.</em></h2>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="number">79%</div>
+      <div class="label">of websites have hidden trackers</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">40+</div>
+      <div class="label">trackers on an average news site</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">3</div>
+      <div class="label">companies see most of your web</div>
+    </div>
+  </div>
+
+  <p class="body-text">
+    Every click, scroll, and pause is recorded. Advertising networks build
+    a detailed profile of your interests, income, health concerns, and
+    political views — without you ever signing up for anything.
+  </p>
+  <p class="body-text">
+    With AI, this data reveals far more than you think. Browsing patterns
+    alone can predict your age, location, relationship status, and even
+    medical conditions with unsettling accuracy.
+  </p>
+  <p class="body-text">
+    FreeFollowers makes the invisible visible. Install the browser extension,
+    then watch your tracker cloud build itself in real time as you browse.
+  </p>
+
+  <br><br>
+  <div class="btn-row">
+    <a href="/graph/demo" class="btn-primary">Who's following me?</a>
+    <a href="#about" class="btn-ghost">About this project</a>
+  </div>
+</section>
+
+<!-- about -->
+<section id="about">
+  <p class="eyebrow">About this project</p>
+  <h2>Built to make tracking visible</h2>
+  <p class="body-text">
+    FreeFollowers is an open-source privacy tool built as part of a data
+    science research project. It uses a browser extension to intercept
+    network requests in real time and visualises the resulting tracker
+    graph — no data is stored on our servers beyond your current session.
+  </p>
+  <p class="body-text">
+    Tracker classification is powered by the
+    <a href="https://disconnect.me" target="_blank" style="color:var(--accent);text-decoration:none;">
+      Disconnect.me
+    </a>
+    open-source tracker protection list, the same list used by Firefox's
+    private browsing mode.
+  </p>
+  <p class="body-text">
+    Questions or feedback?
+    <a href="mailto:hello@freefollowers.ch" style="color:var(--accent);text-decoration:none;">
+      hello@freefollowers.ch
+    </a>
+  </p>
+</section>
+
+<footer>
+  © 2026 FreeFollowers &nbsp;·&nbsp;
+  <a href="#about">About</a> &nbsp;·&nbsp;
+  <a href="mailto:hello@freefollowers.ch">Contact</a>
+</footer>
+
+<!-- ── GLOBE + PARALLAX SCRIPT ── -->
+<script>
+const canvas  = document.getElementById('globe-canvas');
+const ctx     = canvas.getContext('2d');
+const overlay = document.getElementById('scroll-overlay');
+
+let W, H, cx, cy, radius;
+let rotation  = 0;
+let globeY    = 0;   // vertical offset for parallax
+
+// ── dots on the globe surface ──────────────────────────────────────────────
+// We place dots at lat/lon positions and project them onto a circle
+const NUM_DOTS  = 1800;
+const NUM_LINES = 60;   // connection lines between nearby dots
+const dots = [];
+
+function randomSpherePoint() {
+  // uniform distribution on sphere surface
+  const u = Math.random();
+  const v = Math.random();
+  const theta = 2 * Math.PI * u;
+  const phi   = Math.acos(2 * v - 1);
+  return { theta, phi };
+}
+
+for (let i = 0; i < NUM_DOTS; i++) {
+  dots.push({ ...randomSpherePoint(), size: Math.random() * 1.2 + 0.3 });
+}
+
+// project 3D sphere point to 2D canvas
+function project(theta, phi, rot) {
+  const x3 = Math.sin(phi) * Math.cos(theta + rot);
+  const y3 = Math.cos(phi);
+  const z3 = Math.sin(phi) * Math.sin(theta + rot);
+  // simple orthographic projection
+  return { x: cx + x3 * radius, y: cy + globeY + y3 * radius, z: z3 };
+}
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H * 0.48;  // slightly above center
+  radius = Math.min(W, H) * 0.42;
+}
+
+// ── draw ──────────────────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  const projected = dots.map(d => {
+    const p = project(d.theta, d.phi, rotation);
+    return { ...p, size: d.size, visible: p.z > -0.1 };
+  });
+
+  // connection lines between nearby visible dots
+  let lineCount = 0;
+  for (let i = 0; i < projected.length && lineCount < NUM_LINES; i++) {
+    const a = projected[i];
+    if (!a.visible) continue;
+    for (let j = i + 1; j < projected.length && lineCount < NUM_LINES; j++) {
+      const b = projected[j];
+      if (!b.visible) continue;
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (dist < radius * 0.18) {
+        const alpha = (1 - dist / (radius * 0.18)) * 0.15 * a.z * b.z;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = `rgba(230,57,70,${Math.max(0, alpha)})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        lineCount++;
+      }
+    }
+  }
+
+  // dots
+  projected.forEach(p => {
+    if (!p.visible) return;
+    const brightness = 0.3 + p.z * 0.7;   // brighter on front face
+    const alpha      = brightness * (0.4 + p.z * 0.5);
+    // mix white dots with some red accent dots
+    const isAccent = Math.random() < 0.002;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * brightness, 0, Math.PI * 2);
+    ctx.fillStyle = isAccent
+      ? `rgba(230,57,70,${alpha})`
+      : `rgba(255,255,255,${alpha})`;
+    ctx.fill();
+  });
+
+  // outer glow ring
+  const gradient = ctx.createRadialGradient(cx, cy + globeY, radius * 0.85,
+                                             cx, cy + globeY, radius * 1.1);
+  gradient.addColorStop(0, 'rgba(230,57,70,0.04)');
+  gradient.addColorStop(1, 'rgba(230,57,70,0)');
+  ctx.beginPath();
+  ctx.arc(cx, cy + globeY, radius * 1.1, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+}
+
+// ── animation loop ────────────────────────────────────────────────────────
+function animate() {
+  rotation += 0.0008;
+  draw();
+  requestAnimationFrame(animate);
+}
+
+// ── scroll handler ────────────────────────────────────────────────────────
+window.addEventListener('scroll', () => {
+  const scrollY   = window.scrollY;
+  const maxScroll = document.body.scrollHeight - window.innerHeight;
+  const progress  = scrollY / maxScroll;
+
+  // parallax: globe moves up slower than the page scrolls
+  globeY = -scrollY * 0.35;
+
+  // darken overlay as you scroll
+  // starts at 0, reaches 0.92 by 60% scroll
+  overlay.style.opacity = Math.min(progress * 1.5, 0.92);
+}, { passive: true });
+
+// ── init ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => { resize(); draw(); });
+resize();
+animate();
+
+// ── EYE: mouse tracking ───────────────────────────────────────────────────
+(function() {
+  const irisGroup = document.getElementById('iris-group');
+  const eyeWrap   = document.getElementById('eye-wrap');
+  if (!irisGroup || !eyeWrap) return;
+
+  const MAX_MOVE = 8;
+  let targetX = 0, targetY = 0;
+  let currentX = 0, currentY = 0;
+
+  window.addEventListener('mousemove', (e) => {
+    const rect = eyeWrap.getBoundingClientRect();
+    const eyeCX = rect.left + rect.width / 2;
+    const eyeCY = rect.top + rect.height / 2;
+    const dx = e.clientX - eyeCX;
+    const dy = e.clientY - eyeCY;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const factor = Math.min(dist, 600) / 600;
+
+    targetX = (dx / dist) * factor * MAX_MOVE;
+    targetY = (dy / dist) * factor * MAX_MOVE;
+  });
+
+  function animateEye() {
+    currentX += (targetX - currentX) * 0.07;
+    currentY += (targetY - currentY) * 0.07;
+
+    irisGroup.setAttribute(
+      'transform',
+      `translate(${currentX.toFixed(2)},${currentY.toFixed(2)})`
+    );
+
+    requestAnimationFrame(animateEye);
+  }
+
+  animateEye();
+})();
+</script>
+
+</body>
+</html>

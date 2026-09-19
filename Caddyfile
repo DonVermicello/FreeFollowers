@@ -1,0 +1,3 @@
+freefollowers.ch, www.freefollowers.ch {
+    reverse_proxy web:5000
+}

@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "FreeFollowers",
+  "version": "0.3.0",
+  "description": "Visualise trackers and cookie-bearing third parties you encounter while browsing.",
+  "permissions": [
+    "webRequest",
+    "cookies",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open FreeFollowers"
+  }
+}
