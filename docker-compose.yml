@@ -1,35 +1,15 @@
 services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: expenseapp
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
   web:
     build: .
-    depends_on:
-      - db
-    env_file:
-      - .env
+    restart: unless-stopped
     expose:
       - "5000"
+    networks:
+      caddy_network:
+        aliases:
+          - freefollowers
 
-  caddy:
-    image: caddy:2
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - web
-
-volumes:
-  pgdata:
-  caddy_data:
-  caddy_config:
+networks:
+  caddy_network:
+    external: true
+    name: ${CADDY_NETWORK}
