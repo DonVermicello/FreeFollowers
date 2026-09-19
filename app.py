@@ -137,6 +137,16 @@ def get_graph(session_id):
 # for that session ID.
 # We serve graph.html and pass the session_id into it.
  
+@app.route('/demo')
+def demo():
+    return send_from_directory('static', 'demo.html')
+ 
+ 
+@app.route('/how-it-works')
+def how_it_works():
+    return render_template('how-it-works.html')
+ 
+ 
 @app.route('/install')
 def install():
     return render_template('install.html')
@@ -216,4 +226,4 @@ if __name__ == '__main__':
     # Remove debug=True when running in production on Hetzner
     # use_reloader=False because we already have a background thread running
     print('[FreeFollowers] Starting server...')
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)

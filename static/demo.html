@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>FreeFollowers — Sample Tracker Cloud</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: #0a0a0f; color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden; height: 100vh; width: 100vw;
+      touch-action: none;
+    }
+    svg { width:100%; height:100%; }
+ 
+    /* topbar */
+    #topbar {
+      position:fixed; top:0; left:0; right:0; height:52px;
+      background:rgba(10,10,15,0.92); backdrop-filter:blur(8px);
+      border-bottom:1px solid rgba(255,255,255,0.07);
+      display:flex; align-items:center; padding:0 16px; gap:14px; z-index:100;
+    }
+    #topbar h1 { font-size:14px; font-weight:700; white-space:nowrap; }
+    .stat { font-size:12px; color:rgba(255,255,255,0.5); white-space:nowrap; }
+    .stat span { color:white; font-weight:600; }
+    .demo-badge {
+      margin-left:auto; padding:4px 10px;
+      background:rgba(230,57,70,0.15); border:1px solid rgba(230,57,70,0.3);
+      border-radius:20px; font-size:11px; color:#e63946;
+      white-space:nowrap; letter-spacing:0.04em;
+    }
+    #fit-btn {
+      padding:5px 14px;
+      background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
+      border-radius:6px; color:white; font-size:12px; cursor:pointer;
+      white-space:nowrap;
+    }
+    #fit-btn:hover { background:rgba(255,255,255,0.12); }
+ 
+    /* install banner */
+    #install-banner {
+      position:fixed; bottom:0; left:0; right:0;
+      background:rgba(10,10,15,0.95); backdrop-filter:blur(8px);
+      border-top:1px solid rgba(255,255,255,0.07);
+      padding:14px 20px;
+      display:flex; align-items:center; gap:14px; z-index:100;
+      flex-wrap:wrap;
+    }
+    #install-banner p { font-size:13px; color:rgba(255,255,255,0.6); flex:1; min-width:200px; }
+    #install-banner p strong { color:white; }
+    .btn-install {
+      padding:9px 20px; background:#e63946; color:white;
+      border-radius:6px; text-decoration:none; font-size:13px; font-weight:600;
+      white-space:nowrap; transition:background 0.2s;
+    }
+    .btn-install:hover { background:#c1121f; }
+    .btn-close {
+      background:none; border:none; color:rgba(255,255,255,0.3);
+      cursor:pointer; font-size:18px; padding:4px;
+    }
+    .btn-close:hover { color:white; }
+ 
+    /* legend */
+    #legend {
+      position:fixed; bottom:80px; left:14px;
+      background:rgba(10,10,15,0.88); backdrop-filter:blur(8px);
+      border:1px solid rgba(255,255,255,0.08); border-radius:10px;
+      padding:12px 14px; font-size:11px; z-index:50;
+    }
+    .li { display:flex; align-items:center; gap:8px; margin-bottom:5px; color:rgba(255,255,255,0.65); }
+    .li:last-child { margin-bottom:0; }
+    .ld { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+ 
+    /* tooltip */
+    #tooltip {
+      position:fixed; background:rgba(10,10,15,0.97);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+      padding:12px 14px; font-size:12px; max-width:240px;
+      pointer-events:none; opacity:0; transition:opacity 0.15s; z-index:200;
+      line-height:1.6;
+    }
+    #tooltip.vis { opacity:1; }
+    #tooltip h3 { font-size:13px; font-weight:600; margin-bottom:6px; }
+    .tt-row { display:flex; justify-content:space-between; gap:10px; margin-bottom:2px; }
+    .tt-row .l { color:rgba(255,255,255,0.5); }
+    .tt-row .v { color:white; text-align:right; }
+    .tt-cookies { margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08); font-size:11px; color:rgba(255,255,255,0.4); }
+    .tt-cookies strong { color:rgba(255,255,255,0.7); display:block; margin-bottom:2px; }
+ 
+    .node circle { cursor:pointer; stroke:rgba(255,255,255,0.12); stroke-width:1; }
+    .node circle:hover { stroke:white; stroke-width:2; }
+    .node text { fill:rgba(255,255,255,0.7); font-size:9.5px; pointer-events:none; text-anchor:middle; }
+    .link { stroke:rgba(255,255,255,0.1); stroke-width:1; }
+ 
+    /* mobile hint */
+    #mobile-hint {
+      position:fixed; top:60px; left:50%; transform:translateX(-50%);
+      background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+      border-radius:20px; padding:6px 16px; font-size:11px; color:rgba(255,255,255,0.4);
+      pointer-events:none; z-index:50; white-space:nowrap;
+      animation: fadeout 3s 2s forwards;
+    }
+    @keyframes fadeout { to { opacity:0; } }
+  </style>
+</head>
+<body>
+ 
+<div id="topbar">
+  <a href="/" style="color:rgba(255,255,255,0.35);text-decoration:none;font-size:13px;
+     display:flex;align-items:center;gap:4px;flex-shrink:0;transition:color 0.15s"
+     onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">
+    ← Home
+  </a>
+  <span style="color:rgba(255,255,255,0.12)">|</span>
+  <h1>FreeFollowers</h1>
+  <div class="stat">Sites: <span id="s-sites">0</span></div>
+  <div class="stat">Trackers: <span id="s-trackers">0</span></div>
+  <div class="stat">Connections: <span id="s-edges">0</span></div>
+  <div class="demo-badge">Sample data</div>
+  <button id="fit-btn" onclick="fitGraph()">Fit all</button>
+</div>
+ 
+<div id="mobile-hint">👆 Pinch to zoom · Drag to pan</div>
+ 
+<div id="legend">
+  <div class="li"><div class="ld" style="background:#3b82f6"></div>Sites you visited</div>
+  <div class="li"><div class="ld" style="background:#ef4444"></div>Advertising</div>
+  <div class="li"><div class="ld" style="background:#f97316"></div>Analytics</div>
+  <div class="li"><div class="ld" style="background:#a855f7"></div>Social media</div>
+  <div class="li"><div class="ld" style="background:#6b7280"></div>CDN / functional</div>
+</div>
+ 
+<div id="tooltip"></div>
+<svg id="graph-svg"></svg>
+ 
+<div id="install-banner">
+  <p><strong>This is sample data.</strong> Install the extension to see your own real tracker cloud.</p>
+  <a href="/install" class="btn-install">Install FreeFollowers</a>
+  <button class="btn-close" onclick="this.parentElement.remove()">✕</button>
+</div>
+ 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+// ── DEMO DATA ─────────────────────────────────────────────────────────────────
+// Realistic Swiss browsing session
+const NODES = [
+  // Sites visited (blue)
+  { id:'instagram.com',  type:'site', count:12 },
+  { id:'google.com',     type:'site', count:18 },
+  { id:'20min.ch',       type:'site', count:8  },
+  { id:'sunrise.ch',     type:'site', count:6  },
+  { id:'booking.com',    type:'site', count:9  },
+  { id:'ebookers.com',   type:'site', count:5  },
+  { id:'galaxus.ch',     type:'site', count:11 },
+  { id:'brack.ch',       type:'site', count:7  },
+  { id:'exlibris.ch',    type:'site', count:4  },
+  { id:'buch.ch',        type:'site', count:3  },
+  { id:'nzz.ch',         type:'site', count:10 },
+  { id:'sbb.ch',         type:'site', count:6  },
+  { id:'migros.ch',      type:'site', count:8  },
+  { id:'digitec.ch',     type:'site', count:9  },
+  { id:'youtube.com',    type:'site', count:14 },
+  { id:'twitter.com',    type:'site', count:5  },
+  { id:'reddit.com',     type:'site', count:6  },
+  { id:'srf.ch',         type:'site', count:7  },
+  { id:'blick.ch',       type:'site', count:5  },
+  { id:'coop.ch',        type:'site', count:4  },
+ 
+  // Advertising trackers (red)
+  { id:'doubleclick.net',      type:'advertiser', count:28 },
+  { id:'googlesyndication.com',type:'advertiser', count:18 },
+  { id:'criteo.com',           type:'advertiser', count:12 },
+  { id:'adnxs.com',            type:'advertiser', count:9  },
+  { id:'outbrain.com',         type:'advertiser', count:7  },
+  { id:'taboola.com',          type:'advertiser', count:8  },
+  { id:'rubiconproject.com',   type:'advertiser', count:6  },
+  { id:'pubmatic.com',         type:'advertiser', count:5  },
+ 
+  // Analytics (orange)
+  { id:'google-analytics.com', type:'analytics', count:22 },
+  { id:'googletagmanager.com', type:'analytics', count:19 },
+  { id:'hotjar.com',           type:'analytics', count:8  },
+  { id:'clarity.ms',           type:'analytics', count:6  },
+  { id:'segment.com',          type:'analytics', count:5  },
+  { id:'mixpanel.com',         type:'analytics', count:4  },
+ 
+  // Social (purple)
+  { id:'facebook.net',         type:'social', count:14 },
+  { id:'connect.facebook.net', type:'social', count:10 },
+  { id:'platform.twitter.com', type:'social', count:7  },
+  { id:'linkedin.com',         type:'social', count:5  },
+  { id:'pinterest.com',        type:'social', count:4  },
+ 
+  // CDN / functional (grey)
+  { id:'googleapis.com',  type:'cdn', count:15 },
+  { id:'gstatic.com',     type:'cdn', count:12 },
+  { id:'cloudflare.com',  type:'cdn', count:9  },
+  { id:'jquery.com',      type:'cdn', count:6  },
+  { id:'jsdelivr.net',    type:'cdn', count:7  },
+  { id:'akamai.net',      type:'cdn', count:8  },
+  { id:'fastly.net',      type:'cdn', count:6  },
+  { id:'cookielaw.org',   type:'cdn', count:5  },
+];
+ 
+const EDGES = [
+  // instagram
+  { source:'instagram.com', target:'facebook.net', cookies:['ig_did','csrftoken','ds_user_id'] },
+  { source:'instagram.com', target:'doubleclick.net', cookies:['IDE','_gcl_au'] },
+  { source:'instagram.com', target:'google-analytics.com', cookies:['_ga','_gid'] },
+  { source:'instagram.com', target:'connect.facebook.net', cookies:['fr','xs'] },
+  { source:'instagram.com', target:'googleapis.com', cookies:[] },
+ 
+  // google
+  { source:'google.com', target:'doubleclick.net', cookies:['IDE','NID','ANID'] },
+  { source:'google.com', target:'googleapis.com', cookies:[] },
+  { source:'google.com', target:'gstatic.com', cookies:[] },
+  { source:'google.com', target:'google-analytics.com', cookies:['_ga'] },
+ 
+  // youtube
+  { source:'youtube.com', target:'doubleclick.net', cookies:['IDE','YSC','VISITOR_INFO1_LIVE'] },
+  { source:'youtube.com', target:'googletagmanager.com', cookies:['_ga'] },
+  { source:'youtube.com', target:'googleapis.com', cookies:[] },
+  { source:'youtube.com', target:'facebook.net', cookies:['fr'] },
+ 
+  // 20min
+  { source:'20min.ch', target:'doubleclick.net', cookies:['IDE','_gcl_au'] },
+  { source:'20min.ch', target:'google-analytics.com', cookies:['_ga','_gid'] },
+  { source:'20min.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'20min.ch', target:'outbrain.com', cookies:['obuid'] },
+  { source:'20min.ch', target:'taboola.com', cookies:['t_gid','taboola_session_id'] },
+  { source:'20min.ch', target:'facebook.net', cookies:['fr'] },
+  { source:'20min.ch', target:'criteo.com', cookies:['uid','optout'] },
+  { source:'20min.ch', target:'hotjar.com', cookies:['_hjid','_hjSession'] },
+  { source:'20min.ch', target:'cloudflare.com', cookies:['__cf_bm'] },
+ 
+  // nzz
+  { source:'nzz.ch', target:'doubleclick.net', cookies:['IDE','_gcl_au'] },
+  { source:'nzz.ch', target:'google-analytics.com', cookies:['_ga','_gid'] },
+  { source:'nzz.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'nzz.ch', target:'outbrain.com', cookies:['obuid'] },
+  { source:'nzz.ch', target:'criteo.com', cookies:['uid'] },
+  { source:'nzz.ch', target:'hotjar.com', cookies:['_hjid'] },
+  { source:'nzz.ch', target:'cloudflare.com', cookies:['__cf_bm'] },
+  { source:'nzz.ch', target:'cookielaw.org', cookies:[] },
+ 
+  // srf
+  { source:'srf.ch', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'srf.ch', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'srf.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'srf.ch', target:'platform.twitter.com', cookies:['personalization_id'] },
+ 
+  // blick
+  { source:'blick.ch', target:'doubleclick.net', cookies:['IDE','_gcl_au'] },
+  { source:'blick.ch', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'blick.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'blick.ch', target:'taboola.com', cookies:['t_gid'] },
+  { source:'blick.ch', target:'outbrain.com', cookies:['obuid'] },
+  { source:'blick.ch', target:'facebook.net', cookies:['fr'] },
+  { source:'blick.ch', target:'rubiconproject.com', cookies:['put_'] },
+  { source:'blick.ch', target:'pubmatic.com', cookies:['KADUSERCOOKIE'] },
+  { source:'blick.ch', target:'adnxs.com', cookies:['anj','uuid2'] },
+ 
+  // booking
+  { source:'booking.com', target:'doubleclick.net', cookies:['IDE','_gcl_au'] },
+  { source:'booking.com', target:'google-analytics.com', cookies:['_ga','_gid'] },
+  { source:'booking.com', target:'googletagmanager.com', cookies:[] },
+  { source:'booking.com', target:'facebook.net', cookies:['fr','_fbp'] },
+  { source:'booking.com', target:'criteo.com', cookies:['uid'] },
+  { source:'booking.com', target:'segment.com', cookies:['ajs_anonymous_id'] },
+  { source:'booking.com', target:'cloudflare.com', cookies:['__cf_bm'] },
+ 
+  // ebookers
+  { source:'ebookers.com', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'ebookers.com', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'ebookers.com', target:'criteo.com', cookies:['uid','optout'] },
+  { source:'ebookers.com', target:'facebook.net', cookies:['fr'] },
+  { source:'ebookers.com', target:'hotjar.com', cookies:['_hjid'] },
+  { source:'ebookers.com', target:'adnxs.com', cookies:['uuid2'] },
+ 
+  // galaxus
+  { source:'galaxus.ch', target:'google-analytics.com', cookies:['_ga','_gid'] },
+  { source:'galaxus.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'galaxus.ch', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'galaxus.ch', target:'criteo.com', cookies:['uid'] },
+  { source:'galaxus.ch', target:'facebook.net', cookies:['fr','_fbp'] },
+  { source:'galaxus.ch', target:'cloudflare.com', cookies:['__cf_bm'] },
+  { source:'galaxus.ch', target:'hotjar.com', cookies:['_hjid'] },
+ 
+  // digitec
+  { source:'digitec.ch', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'digitec.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'digitec.ch', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'digitec.ch', target:'criteo.com', cookies:['uid'] },
+  { source:'digitec.ch', target:'facebook.net', cookies:['fr'] },
+  { source:'digitec.ch', target:'cloudflare.com', cookies:['__cf_bm'] },
+ 
+  // brack
+  { source:'brack.ch', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'brack.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'brack.ch', target:'criteo.com', cookies:['uid'] },
+  { source:'brack.ch', target:'adnxs.com', cookies:['uuid2'] },
+  { source:'brack.ch', target:'facebook.net', cookies:['fr'] },
+ 
+  // exlibris
+  { source:'exlibris.ch', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'exlibris.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'exlibris.ch', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'exlibris.ch', target:'hotjar.com', cookies:['_hjid'] },
+  { source:'exlibris.ch', target:'criteo.com', cookies:['uid'] },
+ 
+  // buch.ch
+  { source:'buch.ch', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'buch.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'buch.ch', target:'criteo.com', cookies:['uid'] },
+ 
+  // migros
+  { source:'migros.ch', target:'google-analytics.com', cookies:['_ga','_gid'] },
+  { source:'migros.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'migros.ch', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'migros.ch', target:'facebook.net', cookies:['fr'] },
+  { source:'migros.ch', target:'segment.com', cookies:['ajs_anonymous_id'] },
+  { source:'migros.ch', target:'cloudflare.com', cookies:['__cf_bm'] },
+  { source:'migros.ch', target:'clarity.ms', cookies:['_clsk','_clckid'] },
+ 
+  // coop
+  { source:'coop.ch', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'coop.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'coop.ch', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'coop.ch', target:'criteo.com', cookies:['uid'] },
+  { source:'coop.ch', target:'hotjar.com', cookies:['_hjid'] },
+ 
+  // sbb
+  { source:'sbb.ch', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'sbb.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'sbb.ch', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'sbb.ch', target:'hotjar.com', cookies:['_hjid'] },
+  { source:'sbb.ch', target:'cookielaw.org', cookies:[] },
+ 
+  // sunrise
+  { source:'sunrise.ch', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'sunrise.ch', target:'googletagmanager.com', cookies:[] },
+  { source:'sunrise.ch', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'sunrise.ch', target:'hotjar.com', cookies:['_hjid'] },
+  { source:'sunrise.ch', target:'facebook.net', cookies:['fr'] },
+  { source:'sunrise.ch', target:'clarity.ms', cookies:['_clsk'] },
+ 
+  // twitter
+  { source:'twitter.com', target:'platform.twitter.com', cookies:['personalization_id','guest_id'] },
+  { source:'twitter.com', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'twitter.com', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'twitter.com', target:'googlesyndication.com', cookies:['_gcl_au'] },
+ 
+  // reddit
+  { source:'reddit.com', target:'doubleclick.net', cookies:['IDE'] },
+  { source:'reddit.com', target:'google-analytics.com', cookies:['_ga'] },
+  { source:'reddit.com', target:'facebook.net', cookies:['fr'] },
+  { source:'reddit.com', target:'mixpanel.com', cookies:['mp_'] },
+  { source:'reddit.com', target:'cloudflare.com', cookies:['__cf_bm'] },
+];
+ 
+// ── TRACKER INFO ────────────────────────────────────────────────────────────
+const TRACKER_INFO = {
+  'doubleclick.net':       { company:'Google Ads', purpose:'Tracks ad clicks and conversions across the web' },
+  'googlesyndication.com': { company:'Google AdSense', purpose:'Serves and tracks display advertisements' },
+  'criteo.com':            { company:'Criteo', purpose:'Retargeting — shows you ads for products you viewed' },
+  'adnxs.com':             { company:'Microsoft Xandr', purpose:'Programmatic advertising and audience targeting' },
+  'outbrain.com':          { company:'Outbrain', purpose:'Sponsored content recommendations' },
+  'taboola.com':           { company:'Taboola', purpose:'Content recommendation and native ads' },
+  'rubiconproject.com':    { company:'Magnite', purpose:'Real-time bidding for ad placement' },
+  'pubmatic.com':          { company:'PubMatic', purpose:'Ad exchange and yield management' },
+  'google-analytics.com':  { company:'Google Analytics', purpose:'Website visitor tracking and behaviour analysis' },
+  'googletagmanager.com':  { company:'Google Tag Manager', purpose:'Manages and deploys tracking scripts' },
+  'hotjar.com':            { company:'Hotjar', purpose:'Session recording, heatmaps, form tracking' },
+  'clarity.ms':            { company:'Microsoft Clarity', purpose:'Session recording and heatmaps' },
+  'segment.com':           { company:'Segment', purpose:'Collects and routes your data to other trackers' },
+  'mixpanel.com':          { company:'Mixpanel', purpose:'Product analytics and user behaviour tracking' },
+  'facebook.net':          { company:'Meta (Facebook)', purpose:'Tracks activity to target Facebook and Instagram ads' },
+  'connect.facebook.net':  { company:'Meta (Facebook)', purpose:'Facebook social plugins and pixel tracking' },
+  'platform.twitter.com':  { company:'X (Twitter)', purpose:'Tweet buttons and cross-site tracking' },
+  'linkedin.com':          { company:'LinkedIn', purpose:'Professional audience tracking for LinkedIn ads' },
+  'pinterest.com':         { company:'Pinterest', purpose:'Pinterest pixel — tracks purchases and page views' },
+  'googleapis.com':        { company:'Google APIs', purpose:'Fonts, maps and utility APIs' },
+  'gstatic.com':           { company:'Google Static', purpose:'Serves static assets for Google services' },
+  'cloudflare.com':        { company:'Cloudflare', purpose:'CDN and DDoS protection' },
+  'jquery.com':            { company:'jQuery CDN', purpose:'Serves the jQuery JavaScript library' },
+  'jsdelivr.net':          { company:'jsDelivr CDN', purpose:'Open source content delivery network' },
+  'akamai.net':            { company:'Akamai', purpose:'Content delivery and performance network' },
+  'fastly.net':            { company:'Fastly', purpose:'Content delivery network' },
+  'cookielaw.org':         { company:'OneTrust', purpose:'Cookie consent management platform' },
+};
+ 
+function nodeColor(type) {
+  return { site:'#3b82f6', advertiser:'#ef4444', analytics:'#f97316',
+           social:'#a855f7', cdn:'#6b7280' }[type] || '#64748b';
+}
+function nodeRadius(d) {
+  return (d.type === 'site' ? 10 : 6) + Math.min(d.count||1, 12) * 0.6;
+}
+ 
+// ── D3 SETUP ────────────────────────────────────────────────────────────────
+const W = window.innerWidth, H = window.innerHeight;
+const svg = d3.select('#graph-svg');
+const g = svg.append('g');
+ 
+const zoom = d3.zoom()
+  .scaleExtent([0.05, 4])
+  .filter(e => { if(e.type==='wheel'){e.preventDefault();return true;} return !e.button; })
+  .wheelDelta(e => -e.deltaY * 0.003)
+  .on('zoom', e => g.attr('transform', e.transform));
+ 
+svg.call(zoom);
+document.getElementById('graph-svg').addEventListener('wheel', e => e.preventDefault(), {passive:false});
+ 
+const linkG = g.append('g');
+const nodeG = g.append('g');
+ 
+const simulation = d3.forceSimulation(NODES)
+  .alphaDecay(0.03)
+  .velocityDecay(0.45)
+  .force('link', d3.forceLink(EDGES).id(d=>d.id).distance(55))
+  .force('charge', d3.forceManyBody().strength(-150))
+  .force('center', d3.forceCenter(W/2, H/2))
+  .force('collision', d3.forceCollide().radius(d=>nodeRadius(d)+4));
+ 
+// ── TOOLTIP ──────────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+function showTip(e, d, edge) {
+  let html = '';
+  if (edge) {
+    const info = TRACKER_INFO[edge.target.id||edge.target] || {};
+    html = `<h3>${edge.source.id||edge.source} → ${edge.target.id||edge.target}</h3>
+      <div class="tt-row"><span class="l">Company</span><span class="v">${info.company||edge.target.id||edge.target}</span></div>
+      ${edge.cookies&&edge.cookies.length ? `<div class="tt-cookies"><strong>Cookies shared (${edge.cookies.length}):</strong>${edge.cookies.slice(0,5).join(', ')}</div>` : ''}`;
+  } else {
+    const info = TRACKER_INFO[d.id] || {};
+    const typeLabel = {site:'Site you visited',advertiser:'Advertising tracker',analytics:'Analytics',social:'Social media',cdn:'CDN / Functional'};
+    html = `<h3>${info.company||d.id}</h3>
+      <div class="tt-row"><span class="l">Domain</span><span class="v">${d.id}</span></div>
+      <div class="tt-row"><span class="l">Type</span><span class="v">${typeLabel[d.type]||d.type}</span></div>
+      <div class="tt-row"><span class="l">Seen</span><span class="v">${d.count||1}×</span></div>
+      ${info.purpose ? `<div class="tt-cookies"><strong>What they do:</strong>${info.purpose}</div>` : ''}`;
+  }
+  tooltip.innerHTML = html;
+  tooltip.classList.add('vis');
+  moveTip(e);
+}
+function moveTip(e) {
+  const cx = e.clientX||e.touches?.[0]?.clientX||0;
+  const cy = e.clientY||e.touches?.[0]?.clientY||0;
+  tooltip.style.left = Math.min(cx+14, window.innerWidth-260)+'px';
+  tooltip.style.top  = Math.min(cy-10, window.innerHeight-180)+'px';
+}
+function hideTip() { tooltip.classList.remove('vis'); }
+ 
+// ── RENDER ───────────────────────────────────────────────────────────────────
+const link = linkG.selectAll('line').data(EDGES).join('line').attr('class','link')
+  .on('mouseover', (e,d)=>showTip(e,null,d))
+  .on('mousemove', moveTip)
+  .on('mouseout', hideTip);
+ 
+const node = nodeG.selectAll('g').data(NODES).join('g').attr('class','node')
+  .call(d3.drag()
+    .on('start',(e,d)=>{ if(!e.active) simulation.alphaTarget(0.3).restart(); d.fx=d.x;d.fy=d.y; })
+    .on('drag', (e,d)=>{ d.fx=e.x;d.fy=e.y; })
+    .on('end',  (e,d)=>{ if(!e.active) simulation.alphaTarget(0); d.fx=null;d.fy=null; }))
+  .on('mouseover', (e,d)=>showTip(e,d,null))
+  .on('mousemove', moveTip)
+  .on('mouseout', hideTip)
+  .on('touchstart', (e,d)=>{ e.preventDefault(); showTip(e,d,null); }, {passive:false})
+  .on('touchend', hideTip);
+ 
+node.append('circle')
+  .attr('r', d=>nodeRadius(d))
+  .attr('fill', d=>nodeColor(d.type));
+ 
+node.append('text')
+  .attr('dy', d=>nodeRadius(d)+10)
+  .text(d=>d.id.length>18?d.id.slice(0,16)+'…':d.id);
+ 
+simulation.on('tick', () => {
+  link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+      .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+  node.attr('transform',d=>`translate(${d.x},${d.y})`);
+}).on('end', fitGraph);
+ 
+// ── STATS ────────────────────────────────────────────────────────────────────
+document.getElementById('s-sites').textContent    = NODES.filter(n=>n.type==='site').length;
+document.getElementById('s-trackers').textContent = NODES.filter(n=>n.type!=='site').length;
+document.getElementById('s-edges').textContent    = EDGES.length;
+ 
+// ── FIT ──────────────────────────────────────────────────────────────────────
+function fitGraph() {
+  const ns = NODES.filter(n=>n.x!=null);
+  if (!ns.length) return;
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  ns.forEach(n=>{ minX=Math.min(minX,n.x);maxX=Math.max(maxX,n.x);minY=Math.min(minY,n.y);maxY=Math.max(maxY,n.y); });
+  const pad=80, gw=maxX-minX+pad*2, gh=maxY-minY+pad*2;
+  const scale=Math.min(window.innerWidth/gw, (window.innerHeight-52-70)/gh, 1.5);
+  const tx=window.innerWidth/2-scale*(minX+maxX)/2;
+  const ty=(window.innerHeight-52)/2+52-scale*(minY+maxY)/2;
+  svg.transition().duration(600)
+    .call(zoom.transform, d3.zoomIdentity.translate(tx,ty).scale(scale));
+}
+ 
+window.addEventListener('resize',()=>{
+  simulation.force('center',d3.forceCenter(window.innerWidth/2,window.innerHeight/2));
+  simulation.alpha(0.1).restart();
+});
+</script>
+</body>
+</html>

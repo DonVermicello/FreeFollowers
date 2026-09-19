@@ -6,7 +6,7 @@
   <title>FreeFollowers — your cookie cloud</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
+ 
     body {
       background: #0a0a0f;
       color: #ffffff;
@@ -15,19 +15,19 @@
       height: 100vh;
       width: 100vw;
     }
-
+ 
     /* ── graph canvas ── */
     #graph-container {
       width: 100vw;
       height: 100vh;
       position: relative;
     }
-
+ 
     svg {
       width: 100%;
       height: 100%;
     }
-
+ 
     /* ── node styles (set via JS but defined here for reference) ── */
     .node-site     { fill: #3b82f6; }   /* blue  — sites you visited */
     .node-tracker  { fill: #ef4444; }   /* red   — ad/tracking */
@@ -35,7 +35,7 @@
     .node-social   { fill: #a855f7; }   /* purple — social media */
     .node-cdn      { fill: #6b7280; }   /* grey  — CDN / functional */
     .node-unknown  { fill: #64748b; }   /* slate — unknown */
-
+ 
     .node circle {
       stroke: rgba(255,255,255,0.15);
       stroke-width: 1px;
@@ -43,7 +43,7 @@
       transition: opacity 0.2s;
     }
     .node circle:hover { stroke: white; stroke-width: 2px; }
-
+ 
     .node text {
       fill: rgba(255,255,255,0.75);
       font-size: 10px;
@@ -51,13 +51,13 @@
       text-anchor: middle;
       dominant-baseline: middle;
     }
-
+ 
     .link {
       stroke: rgba(255,255,255,0.12);
       stroke-width: 1px;
     }
     .link:hover { stroke: rgba(255,255,255,0.5); }
-
+ 
     /* ── top bar ── */
     #topbar {
       position: fixed;
@@ -72,14 +72,14 @@
       gap: 20px;
       z-index: 100;
     }
-
+ 
     #topbar h1 {
       font-size: 15px;
       font-weight: 600;
       color: white;
       letter-spacing: -0.3px;
     }
-
+ 
     .stat {
       font-size: 12px;
       color: rgba(255,255,255,0.5);
@@ -88,7 +88,7 @@
       color: white;
       font-weight: 500;
     }
-
+ 
     #live-dot {
       width: 7px; height: 7px;
       border-radius: 50%;
@@ -100,7 +100,7 @@
       0%,100% { opacity: 1; }
       50%      { opacity: 0.3; }
     }
-
+ 
     /* ── legend ── */
     #legend {
       position: fixed;
@@ -127,7 +127,7 @@
       border-radius: 50%;
       flex-shrink: 0;
     }
-
+ 
     /* ── tooltip ── */
     #tooltip {
       position: fixed;
@@ -173,8 +173,24 @@
       display: block;
       margin-bottom: 3px;
     }
-
-    /* ── waiting state ── */
+ 
+    /* ── mobile message ── */
+  #mobile-wall {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #0a0a0f;
+    z-index: 999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 24px;
+  }
+  #mobile-wall.visible { display: flex; }
+  #mobile-wall .icon { font-size: 48px; margin-bottom: 20px; }
+  #mobile-wall h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 12px; }
+  #mobile-wall p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.7; max-width: 320px; }
     #waiting {
       position: fixed;
       top: 50%; left: 50%;
@@ -189,9 +205,28 @@
   </style>
 </head>
 <body>
-
+ 
+<!-- mobile wall -->
+<div id="mobile-wall">
+  <div class="icon">📱</div>
+  <h2>Desktop only</h2>
+  <p>The live tracker graph needs a desktop browser with the extension installed.</p>
+  <br>
+  <a href="/demo" style="display:inline-block; margin-top:16px; padding:12px 24px;
+     background:#e63946; color:white; border-radius:8px; text-decoration:none;
+     font-size:14px; font-weight:600;">
+    👁 See a sample tracker cloud
+  </a>
+</div>
+ 
 <!-- top bar -->
 <div id="topbar">
+  <a href="/" style="color:rgba(255,255,255,0.35);text-decoration:none;font-size:13px;
+     display:flex;align-items:center;gap:4px;flex-shrink:0;transition:color 0.15s"
+     onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">
+    ← Home
+  </a>
+  <span style="color:rgba(255,255,255,0.12)">|</span>
   <h1>FreeFollowers</h1>
   <div class="stat">Sites visited: <span id="stat-sites">0</span></div>
   <div class="stat">Trackers found: <span id="stat-trackers">0</span></div>
@@ -206,14 +241,14 @@
     Fit all
   </button>
 </div>
-
+ 
 <!-- waiting message shown before any data arrives -->
 <div id="waiting">
   <div style="font-size:32px;margin-bottom:12px;">🕸️</div>
   <div>Browse any website in Edge</div>
   <div>Your cookie cloud will appear here</div>
 </div>
-
+ 
 <!-- legend -->
 <div id="legend">
   <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Sites you visited</div>
@@ -222,26 +257,31 @@
   <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Social media</div>
   <div class="legend-item"><div class="legend-dot" style="background:#6b7280"></div> CDN / functional</div>
 </div>
-
+ 
 <!-- tooltip -->
 <div id="tooltip"></div>
-
+ 
 <!-- graph -->
 <div id="graph-container">
   <svg id="graph-svg"></svg>
 </div>
-
+ 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script>
-
+ 
+// ── mobile detection ──────────────────────────────────────────────────────
+if (/Android|iPhone|iPad|iPod|Mobile|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+  document.getElementById('mobile-wall').classList.add('visible');
+}
+ 
 // ── get session ID from URL ────────────────────────────────────────────────────
 // URL is /graph/abc123  →  session ID is "abc123"
 const SESSION_ID = window.location.pathname.split('/').pop();
-
+ 
 // ── tracker database — loaded from Flask on startup ──────────────────────────
 // Falls back to a small built-in list if the server hasn't loaded services.json yet
 let TRACKER_DB = {};
-
+ 
 const BUILTIN_DB = {
   'doubleclick.net':       { company:'Google Ads',        type:'advertiser', purpose:'Tracks ad clicks and conversions' },
   'google-analytics.com':  { company:'Google Analytics',  type:'analytics',  purpose:'Website visitor tracking' },
@@ -255,7 +295,7 @@ const BUILTIN_DB = {
   'gstatic.com':           { company:'Google Static',     type:'cdn',        purpose:'Static assets for Google services' },
   'cloudflare.com':        { company:'Cloudflare',        type:'cdn',        purpose:'CDN and DDoS protection' },
 };
-
+ 
 async function loadTrackerDB() {
   try {
     const res = await fetch('/api/trackers');
@@ -273,7 +313,7 @@ async function loadTrackerDB() {
   }
   TRACKER_DB = BUILTIN_DB;
 }
-
+ 
 function classifyDomain(domain) {
   // exact match
   if (TRACKER_DB[domain]) {
@@ -298,7 +338,7 @@ function classifyDomain(domain) {
   if (BUILTIN_DB[domain]) return BUILTIN_DB[domain];
   return { company: domain, type: 'unknown', purpose: 'No information available for this domain' };
 }
-
+ 
 function nodeColor(type) {
   const colors = {
     site:       '#3b82f6',
@@ -311,15 +351,15 @@ function nodeColor(type) {
   };
   return colors[type] || colors.unknown;
 }
-
+ 
 // ── D3 setup ─────────────────────────────────────────────────────────────────
 const svg = d3.select('#graph-svg');
 const width  = window.innerWidth;
 const height = window.innerHeight;
-
+ 
 // g = main group — everything goes inside so we can zoom/pan
 const g = svg.append('g');
-
+ 
 // zoom behaviour — scroll to zoom, drag to pan
 const zoomBehaviour = d3.zoom()
   .scaleExtent([0.05, 4])
@@ -334,17 +374,17 @@ const zoomBehaviour = d3.zoom()
   })
   .wheelDelta(event => -event.deltaY * 0.003)
   .on('zoom', (event) => g.attr('transform', event.transform));
-
+ 
 svg.call(zoomBehaviour);
-
+ 
 // prevent page scroll when mouse is over SVG
 document.getElementById('graph-svg').addEventListener('wheel',
   e => e.preventDefault(), { passive: false });
-
+ 
 // containers — links behind nodes
 const linkGroup = g.append('g').attr('class', 'links');
 const nodeGroup = g.append('g').attr('class', 'nodes');
-
+ 
 // force simulation
 const simulation = d3.forceSimulation()
   .alphaDecay(0.05)
@@ -353,19 +393,19 @@ const simulation = d3.forceSimulation()
   .force('charge', d3.forceManyBody().strength(-120))
   .force('center', d3.forceCenter(width / 2, height / 2))
   .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 3));
-
+ 
 function nodeRadius(d) {
   // sites slightly bigger, size scales with connection count
   const base = d.type === 'site' ? 12 : 8;
   return base + Math.min(d.count || 1, 10);
 }
-
+ 
 // ── tooltip ───────────────────────────────────────────────────────────────────
 const tooltip = document.getElementById('tooltip');
-
+ 
 function showTooltip(event, d, edgeData) {
   let html = '';
-
+ 
   if (edgeData) {
     // hovering over an edge
     const info = classifyDomain(edgeData.target.id || edgeData.target);
@@ -396,12 +436,12 @@ function showTooltip(event, d, edgeData) {
       </div>
     `;
   }
-
+ 
   tooltip.innerHTML = html;
   tooltip.classList.add('visible');
   moveTooltip(event);
 }
-
+ 
 function moveTooltip(event) {
   const x = event.clientX + 15;
   const y = event.clientY - 10;
@@ -411,25 +451,25 @@ function moveTooltip(event) {
   tooltip.style.left = Math.min(x, maxX) + 'px';
   tooltip.style.top  = Math.min(y, maxY) + 'px';
 }
-
+ 
 function hideTooltip() {
   tooltip.classList.remove('visible');
 }
-
+ 
 // ── graph rendering ───────────────────────────────────────────────────────────
 let currentNodes = [];
 let currentEdges = [];
-
+ 
 // track previous counts to avoid unnecessary restarts
 let prevNodeCount = 0;
 let prevEdgeCount = 0;
-
+ 
 function updateGraph(data) {
   let nodes = data.nodes || [];
   const edges = data.edges || [];
-
+ 
   if (nodes.length === 0) return;
-
+ 
   // ── filter out isolated nodes ─────────────────────────────────────────────
   // Only show nodes that either:
   // a) have at least one edge connected to them, OR
@@ -440,10 +480,10 @@ function updateGraph(data) {
     connectedIds.add(e.target.id || e.target);
   });
   nodes = nodes.filter(n => n.type === 'site' || connectedIds.has(n.id));
-
+ 
   // hide waiting message
   document.getElementById('waiting').classList.add('hidden');
-
+ 
   // enrich nodes with classification
   nodes.forEach(n => {
     if (n.type !== 'site') {
@@ -455,14 +495,14 @@ function updateGraph(data) {
       n.company  = n.id;
     }
   });
-
+ 
   // update stats bar
   document.getElementById('stat-sites').textContent =
     nodes.filter(n => n.type === 'site').length;
   document.getElementById('stat-trackers').textContent =
     nodes.filter(n => n.type !== 'site').length;
   document.getElementById('stat-edges').textContent = edges.length;
-
+ 
   // preserve positions of existing nodes so graph doesn't jump
   const existingById = {};
   currentNodes.forEach(n => existingById[n.id] = n);
@@ -474,10 +514,10 @@ function updateGraph(data) {
       n.vy = existingById[n.id].vy;
     }
   });
-
+ 
   currentNodes = nodes;
   currentEdges = edges;
-
+ 
   // ── links ──────────────────────────────────────────────────────────────────
   const link = linkGroup.selectAll('line')
     .data(edges, d => d.id)
@@ -491,7 +531,7 @@ function updateGraph(data) {
       update => update,
       exit   => exit.remove()
     );
-
+ 
   // ── nodes ──────────────────────────────────────────────────────────────────
   const node = nodeGroup.selectAll('g.node')
     .data(nodes, d => d.id)
@@ -505,15 +545,15 @@ function updateGraph(data) {
           .on('mouseover', (event, d) => showTooltip(event, d, null))
           .on('mousemove', moveTooltip)
           .on('mouseout',  hideTooltip);
-
+ 
         g.append('circle')
           .attr('r', d => nodeRadius(d))
           .attr('fill', d => nodeColor(d.nodeType));
-
+ 
         g.append('text')
           .attr('dy', d => nodeRadius(d) + 11)
           .text(d => d.id.length > 20 ? d.id.slice(0, 18) + '…' : d.id);
-
+ 
         return g;
       },
       update => {
@@ -524,7 +564,7 @@ function updateGraph(data) {
       },
       exit => exit.remove()
     );
-
+ 
   // ── restart simulation ─────────────────────────────────────────────────────
   simulation.nodes(nodes).on('tick', () => {
     link
@@ -532,12 +572,12 @@ function updateGraph(data) {
       .attr('y1', d => d.source.y)
       .attr('x2', d => d.target.x)
       .attr('y2', d => d.target.y);
-
+ 
     node.attr('transform', d => `translate(${d.x},${d.y})`);
   });
-
+ 
   simulation.force('link').links(edges);
-
+ 
   // only kick the simulation if something actually changed
   // otherwise nodes drift forever from constant restarts
   const changed = nodes.length !== prevNodeCount || edges.length !== prevEdgeCount;
@@ -549,11 +589,11 @@ function updateGraph(data) {
     simulation.on('end', fitGraph);
   }
 }
-
+ 
 // ── auto-fit: zoom to show all nodes ─────────────────────────────────────────
 function fitGraph() {
   if (currentNodes.length === 0) return;
-
+ 
   // find bounding box of all nodes
   let minX = Infinity, maxX = -Infinity;
   let minY = Infinity, maxY = -Infinity;
@@ -564,24 +604,24 @@ function fitGraph() {
     minY = Math.min(minY, n.y);
     maxY = Math.max(maxY, n.y);
   });
-
+ 
   if (!isFinite(minX)) return;
-
+ 
   const padding = 80;
   const graphW = maxX - minX + padding * 2;
   const graphH = maxY - minY + padding * 2;
   const scaleX = window.innerWidth  / graphW;
   const scaleY = window.innerHeight / graphH;
   const scale  = Math.min(scaleX, scaleY, 1.5);  // never zoom in more than 1.5x
-
+ 
   const tx = window.innerWidth  / 2 - scale * (minX + maxX) / 2;
   const ty = window.innerHeight / 2 - scale * (minY + maxY) / 2;
-
+ 
   svg.transition().duration(600)
     .call(zoomBehaviour.transform,
       d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
-
+ 
 // ── drag handlers ─────────────────────────────────────────────────────────────
 function dragStart(event, d) {
   if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -594,7 +634,7 @@ function dragEnd(event, d) {
   if (!event.active) simulation.alphaTarget(0);
   d.fx = null; d.fy = null;
 }
-
+ 
 // ── poll Flask for updates every 2 seconds ────────────────────────────────────
 async function fetchGraph() {
   try {
@@ -606,17 +646,17 @@ async function fetchGraph() {
     console.warn('Could not fetch graph:', err);
   }
 }
-
+ 
 // fetch immediately, then every 2 seconds
 fetchGraph();
 setInterval(fetchGraph, 2000);
-
+ 
 // ── resize handler ────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {
   simulation.force('center', d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
   simulation.alpha(0.1).restart();
 });
-
+ 
 </script>
 </body>
 </html>

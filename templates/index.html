@@ -73,32 +73,6 @@
       transition: color 0.2s;
     }
     nav a:hover { color: var(--white); }
-
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    nav .nav-cta {
-      padding: 10px 16px;
-      border-radius: 4px;
-      background: var(--accent);
-      color: #fff;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      box-shadow: 0 0 22px rgba(230,57,70,0.28);
-      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-    }
-
-    nav .nav-cta:hover {
-      color: #fff;
-      background: #c1121f;
-      transform: translateY(-1px);
-      box-shadow: 0 3px 28px rgba(230,57,70,0.4);
-    }
  
     /* ── SECTIONS ── */
     section {
@@ -108,20 +82,20 @@
  
     /* ── HERO ── */
     #hero {
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
+      justify-content: center;
       text-align: center;
-      padding: 86px 24px 72px;
+      padding: 80px 24px 0;
     }
  
     .eye-wrap {
       width: 180px;
       height: 180px;
       max-width: 60vw;
-      margin-bottom: 121px;
+      margin-bottom: 56px;
       filter: drop-shadow(0 0 24px rgba(180,0,0,0.65))
               drop-shadow(0 0 8px rgba(180,0,0,0.3));
       animation: float 5s ease-in-out infinite;
@@ -154,7 +128,7 @@
       color: var(--dim);
       max-width: 480px;
       line-height: 1.6;
-      margin-bottom: 28px;
+      margin-bottom: 48px;
     }
  
     /* ── BUTTONS ── */
@@ -356,33 +330,6 @@
       background-size: 80px 80px;
       mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
     }
-
-
-    @media (max-width: 640px) {
-      nav { padding: 18px 20px; }
-      nav .nav-actions > a:first-child { display: none; }
-      nav .nav-cta { padding: 9px 12px; font-size: 11px; }
-
-      #hero {
-        padding-top: 78px;
-        padding-bottom: 58px;
-      }
-
-      .eye-wrap {
-        width: 150px;
-        height: 150px;
-        margin-bottom: 26px;
-      }
-
-      #hero h1 {
-        font-size: clamp(2rem, 10vw, 3rem);
-      }
-
-      #hero p.tagline {
-        margin-bottom: 24px;
-      }
-    }
-
   </style>
 </head>
 <body>
@@ -399,10 +346,7 @@
 <!-- nav -->
 <nav>
   <span class="logo">FreeFollowers</span>
-  <div class="nav-actions">
-    <a href="#about">About</a>
-    <a href="/install" class="nav-cta">Who's following me?</a>
-  </div>
+  <a href="/how-it-works">About</a>
 </nav>
  
 <!-- hero -->
@@ -516,20 +460,27 @@
       <!-- eyeball outline -->
       <circle cx="60" cy="60" r="50" fill="none"
               stroke="rgba(100,30,30,0.4)" stroke-width="1"/>
-</svg>
+ 
+    </svg>
   </div>
-
-  <h1>The followers you <span>never wanted.</span></h1>
+ 
+  <h1>The followers<br>you <span>never</span> wanted</h1>
   <p class="tagline">
-    See which companies are quietly following you across the web — and how they connect.
+    Every website you visit silently notifies dozens of companies.
+    See exactly who is watching you — in real time.
   </p>
-
-  <div class="scroll-hint">
-    <span>Scroll to explore</span>
-    <div class="arrow"></div>
+  <div class="btn-row">
+    <a href="/install" class="btn-primary">Who's following me?</a>
+    <a href="/demo" class="btn-ghost">See sample graph</a>
   </div>
+ 
+  <div class="scroll-hint">
+    <div class="arrow"></div>
+    scroll
+  </div>
+ 
 </section>
-
+ 
 <section id="content">
   <p class="eyebrow">Why it matters</p>
   <h2>You are not browsing the web.<br>The web is <em>browsing you.</em></h2>
@@ -567,7 +518,7 @@
   <br><br>
   <div class="btn-row">
     <a href="/install" class="btn-primary">Who's following me?</a>
-    <a href="#about" class="btn-ghost">About this project</a>
+    <a href="/how-it-works" class="btn-ghost">About this project</a>
   </div>
 </section>
  
@@ -732,42 +683,37 @@ window.addEventListener('resize', () => { resize(); draw(); });
 resize();
 animate();
  
-// ── EYE: mouse tracking ───────────────────────────────────────────────────
+// ── EYE: mouse tracking + blink ───────────────────────────────────────────
 (function() {
-  const irisGroup = document.getElementById('iris-group');
-  const eyeWrap   = document.getElementById('eye-wrap');
+  const irisGroup  = document.getElementById('iris-group');
+  const eyeWrap    = document.getElementById('eye-wrap');
   if (!irisGroup || !eyeWrap) return;
-
+ 
   const MAX_MOVE = 8;
   let targetX = 0, targetY = 0;
   let currentX = 0, currentY = 0;
-
+ 
   window.addEventListener('mousemove', (e) => {
     const rect = eyeWrap.getBoundingClientRect();
-    const eyeCX = rect.left + rect.width / 2;
-    const eyeCY = rect.top + rect.height / 2;
+    const eyeCX = rect.left + rect.width  / 2;
+    const eyeCY = rect.top  + rect.height / 2;
     const dx = e.clientX - eyeCX;
     const dy = e.clientY - eyeCY;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
     const factor = Math.min(dist, 600) / 600;
-
     targetX = (dx / dist) * factor * MAX_MOVE;
     targetY = (dy / dist) * factor * MAX_MOVE;
   });
-
+ 
   function animateEye() {
     currentX += (targetX - currentX) * 0.07;
     currentY += (targetY - currentY) * 0.07;
-
-    irisGroup.setAttribute(
-      'transform',
-      `translate(${currentX.toFixed(2)},${currentY.toFixed(2)})`
-    );
-
+    irisGroup.setAttribute('transform',
+      `translate(${currentX.toFixed(2)},${currentY.toFixed(2)})`);
     requestAnimationFrame(animateEye);
   }
-
   animateEye();
+ 
 })();
 </script>
  
