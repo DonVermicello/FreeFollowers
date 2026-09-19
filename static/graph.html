@@ -174,51 +174,6 @@
       margin-bottom: 3px;
     }
 
-
-    /* ── graph mode toggle ── */
-    #mode-toggle {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      padding: 3px;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 8px;
-      background: rgba(255,255,255,0.04);
-    }
-
-    .mode-btn {
-      border: 0;
-      border-radius: 5px;
-      padding: 5px 10px;
-      background: transparent;
-      color: rgba(255,255,255,0.5);
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-    }
-
-    .mode-btn:hover { color: rgba(255,255,255,0.85); }
-
-    .mode-btn.active {
-      background: rgba(230,57,70,0.22);
-      color: #fff;
-    }
-
-    #mode-note {
-      position: fixed;
-      top: 58px;
-      left: 20px;
-      z-index: 99;
-      padding: 7px 10px;
-      border-radius: 6px;
-      background: rgba(10,10,15,0.78);
-      border: 1px solid rgba(255,255,255,0.06);
-      color: rgba(255,255,255,0.42);
-      font-size: 10px;
-      pointer-events: none;
-    }
-
     /* ── waiting state ── */
     #waiting {
       position: fixed;
@@ -241,10 +196,6 @@
   <div class="stat">Sites visited: <span id="stat-sites">0</span></div>
   <div class="stat">Trackers found: <span id="stat-trackers">0</span></div>
   <div class="stat">Connections: <span id="stat-edges">0</span></div>
-  <div id="mode-toggle" title="Switch between trackers seen this session and all tracker-cookie domains already stored in the browser">
-    <button id="mode-new" class="mode-btn active" type="button">New trackers</button>
-    <button id="mode-all" class="mode-btn" type="button">All trackers</button>
-  </div>
   <div id="live-dot" title="Updating live"></div>
   <button onclick="fitGraph()" style="
     margin-left:12px; padding:4px 12px;
@@ -255,7 +206,6 @@
     Fit all
   </button>
 </div>
-<div id="mode-note">New trackers = observed during this browser session</div>
 
 <!-- waiting message shown before any data arrives -->
 <div id="waiting">
@@ -271,7 +221,6 @@
   <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div> Analytics</div>
   <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Social media</div>
   <div class="legend-item"><div class="legend-dot" style="background:#6b7280"></div> CDN / functional</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div> Previously stored cookie baseline</div>
 </div>
 
 <!-- tooltip -->
@@ -289,182 +238,66 @@
 // URL is /graph/abc123  →  session ID is "abc123"
 const SESSION_ID = window.location.pathname.split('/').pop();
 
-// ── tracker classification ────────────────────────────────────────────────────
-// Start with a small built-in fallback database so the graph can render
-// immediately even if /api/services is slow or unavailable.
-const TRACKER_DB = {
-  // Advertising
-  'doubleclick.net':       { company:'Google Ads',        type:'advertiser', purpose:'Tracks ad clicks and conversions across the web' },
-  'googlesyndication.com': { company:'Google AdSense',    type:'advertiser', purpose:'Serves and tracks display advertisements' },
-  'adnxs.com':             { company:'Microsoft Xandr',   type:'advertiser', purpose:'Programmatic advertising and audience targeting' },
-  'rubiconproject.com':    { company:'Magnite',           type:'advertiser', purpose:'Real-time bidding for ad placement' },
-  'pubmatic.com':          { company:'PubMatic',          type:'advertiser', purpose:'Ad exchange and yield management' },
-  'openx.net':             { company:'OpenX',             type:'advertiser', purpose:'Programmatic ad marketplace' },
-  'taboola.com':           { company:'Taboola',           type:'advertiser', purpose:'Content recommendation and native ads' },
-  'outbrain.com':          { company:'Outbrain',          type:'advertiser', purpose:'Sponsored content recommendations' },
+// ── tracker database — loaded from Flask on startup ──────────────────────────
+// Falls back to a small built-in list if the server hasn't loaded services.json yet
+let TRACKER_DB = {};
 
-  // Analytics
-  'google-analytics.com':  { company:'Google Analytics',  type:'analytics',  purpose:'Website visitor tracking and behaviour analysis' },
-  'googletagmanager.com':  { company:'Google Tag Manager',type:'analytics',  purpose:'Manages and deploys tracking scripts' },
-  'hotjar.com':            { company:'Hotjar',            type:'analytics',  purpose:'Session recording, heatmaps, user surveys' },
-  'mixpanel.com':          { company:'Mixpanel',          type:'analytics',  purpose:'Product analytics and user event tracking' },
-  'segment.com':           { company:'Segment',           type:'analytics',  purpose:'Customer data platform — collects and routes user data' },
-  'amplitude.com':         { company:'Amplitude',         type:'analytics',  purpose:'Product analytics and user behaviour tracking' },
+const BUILTIN_DB = {
+  'doubleclick.net':       { company:'Google Ads',        type:'advertiser', purpose:'Tracks ad clicks and conversions' },
+  'google-analytics.com':  { company:'Google Analytics',  type:'analytics',  purpose:'Website visitor tracking' },
+  'googletagmanager.com':  { company:'Google Tag Manager',type:'analytics',  purpose:'Manages tracking scripts' },
+  'facebook.net':          { company:'Meta (Facebook)',    type:'social',     purpose:'Cross-site tracking for Facebook ads' },
+  'hotjar.com':            { company:'Hotjar',            type:'analytics',  purpose:'Session recording and heatmaps' },
+  'googlesyndication.com': { company:'Google AdSense',    type:'advertiser', purpose:'Serves display advertisements' },
+  'adnxs.com':             { company:'Microsoft Xandr',   type:'advertiser', purpose:'Programmatic ad targeting' },
   'clarity.ms':            { company:'Microsoft Clarity', type:'analytics',  purpose:'Session recording and heatmaps' },
-
-  // Social
-  'facebook.net':          { company:'Meta (Facebook)',   type:'social',     purpose:'Tracks your activity to target Facebook/Instagram ads' },
-  'facebook.com':          { company:'Meta (Facebook)',   type:'social',     purpose:'Social login, like buttons, pixel tracking' },
-  'twitter.com':           { company:'X (Twitter)',       type:'social',     purpose:'Tweet buttons and cross-site tracking' },
-  'linkedin.com':          { company:'LinkedIn',          type:'social',     purpose:'Professional audience tracking for LinkedIn ads' },
-  'pinterest.com':         { company:'Pinterest',         type:'social',     purpose:'Pinterest pixel — tracks purchases and page views' },
-
-  // CDN / functional
-  'googleapis.com':        { company:'Google APIs',       type:'cdn',        purpose:'Fonts, maps, and utility APIs — usually non-tracking' },
-  'gstatic.com':           { company:'Google Static',     type:'cdn',        purpose:'Serves static assets (fonts, images) for Google services' },
-  'cloudflare.com':        { company:'Cloudflare',        type:'cdn',        purpose:'Content delivery network and DDoS protection' },
-  'cloudflareinsights.com':{ company:'Cloudflare',        type:'analytics',  purpose:'Basic traffic analytics' },
-  'jsdelivr.net':          { company:'jsDelivr CDN',      type:'cdn',        purpose:'Open source content delivery network' },
-  'bootstrapcdn.com':      { company:'Bootstrap CDN',     type:'cdn',        purpose:'Serves Bootstrap CSS/JS framework files' },
+  'googleapis.com':        { company:'Google APIs',       type:'cdn',        purpose:'Fonts, maps, utility APIs' },
+  'gstatic.com':           { company:'Google Static',     type:'cdn',        purpose:'Static assets for Google services' },
+  'cloudflare.com':        { company:'Cloudflare',        type:'cdn',        purpose:'CDN and DDoS protection' },
 };
 
-function mapDisconnectCategory(category) {
-  const c = String(category || '').toLowerCase();
-
-  if (c === 'analytics') return 'analytics';
-  if (c === 'social') return 'social';
-  if (c === 'content') return 'cdn';
-
-  // Advertising, Email, Fingerprinting, Cryptomining and any other
-  // Disconnect tracking category are shown as trackers.
-  return 'tracker';
-}
-
-function purposeForCategory(category) {
-  const descriptions = {
-    Advertising: 'Used for advertising, audience profiling, targeting or measuring ad performance.',
-    Analytics: 'Used to measure website usage and analyse visitor behaviour.',
-    Social: 'Used by social media services and may connect activity across websites.',
-    Content: 'Provides third-party content or functionality used by the website.',
-    Email: 'Associated with email delivery, marketing or email interaction tracking.',
-    FingerprintingGeneral: 'May identify or recognise browsers using browser or device characteristics.',
-    FingerprintingInvasive: 'Uses browser or device characteristics for potentially invasive fingerprinting.',
-    Cryptomining: 'May use browser resources for cryptocurrency mining.'
-  };
-
-  return descriptions[category] || `Listed by Disconnect in the category "${category}".`;
-}
-
-async function loadTrackerDatabase() {
+async function loadTrackerDB() {
   try {
-    const res = await fetch('/api/services');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const services = await res.json();
-    const categories = services && services.categories;
-
-    if (!categories || typeof categories !== 'object') {
-      throw new Error('services.json has no categories object');
-    }
-
-    let loadedDomains = 0;
-
-    for (const [category, companies] of Object.entries(categories)) {
-      if (!Array.isArray(companies)) continue;
-
-      for (const companyEntry of companies) {
-        if (!companyEntry || typeof companyEntry !== 'object') continue;
-
-        for (const [company, companyData] of Object.entries(companyEntry)) {
-          if (!companyData || typeof companyData !== 'object') continue;
-
-          // A company normally contains one homepage key whose value is an
-          // array of domains. Some entries also contain metadata such as
-          // "session-replay": "true"; those values are deliberately skipped.
-          for (const [homepage, domains] of Object.entries(companyData)) {
-            if (!Array.isArray(domains)) continue;
-
-            for (const rawDomain of domains) {
-              if (typeof rawDomain !== 'string') continue;
-
-              const cleanDomain = rawDomain
-                .trim()
-                .toLowerCase()
-                .replace(/^www\./, '');
-
-              if (!cleanDomain) continue;
-
-              TRACKER_DB[cleanDomain] = {
-                company,
-                type: mapDisconnectCategory(category),
-                category,
-                homepage,
-                purpose: purposeForCategory(category)
-              };
-
-              loadedDomains++;
-            }
-          }
-        }
+    const res = await fetch('/api/trackers');
+    if (res.ok) {
+      const data = await res.json();
+      const count = Object.keys(data).length;
+      if (count > 0) {
+        TRACKER_DB = data;
+        console.log(`[FreeFollowers] Loaded ${count} tracker domains from server`);
+        return;
       }
     }
-
-    console.log(`[FreeFollowers] Disconnect database loaded: ${loadedDomains} domain entries`);
-
-    // Refresh once so visible nodes and the stored-cookie baseline can be
-    // reclassified using the full Disconnect database.
-    if (latestGraphData) updateGraph(latestGraphData);
-    else fetchGraph();
-  } catch (err) {
-    // Important: classification failure must never stop the graph itself.
-    console.warn('[FreeFollowers] Could not load Disconnect database. Using fallback classification.', err);
+  } catch (e) {
+    console.warn('[FreeFollowers] Could not load tracker list from server, using built-in');
   }
-}
-
-function lookupTrackerDomain(domain) {
-  if (!domain) {
-    return {
-      matched: false,
-      info: {
-        company: 'Unknown',
-        type: 'unknown',
-        purpose: 'No information available for this domain'
-      }
-    };
-  }
-
-  const cleanDomain = String(domain)
-    .trim()
-    .toLowerCase()
-    .replace(/^\./, '')
-    .replace(/^www\./, '');
-
-  if (TRACKER_DB[cleanDomain]) {
-    return { matched: true, info: TRACKER_DB[cleanDomain] };
-  }
-
-  const parts = cleanDomain.split('.');
-  for (let i = 1; i < parts.length - 1; i++) {
-    const parentDomain = parts.slice(i).join('.');
-    if (TRACKER_DB[parentDomain]) {
-      return { matched: true, info: TRACKER_DB[parentDomain] };
-    }
-  }
-
-  return {
-    matched: false,
-    info: {
-      company: cleanDomain,
-      type: 'unknown',
-      purpose: 'This domain is not listed in the Disconnect tracker database.'
-    }
-  };
+  TRACKER_DB = BUILTIN_DB;
 }
 
 function classifyDomain(domain) {
-  return lookupTrackerDomain(domain).info;
+  // exact match
+  if (TRACKER_DB[domain]) {
+    const d = TRACKER_DB[domain];
+    return {
+      company: d.company,
+      type:    d.type,
+      purpose: d.purpose || `${d.category || d.type} tracker — ${d.url || domain}`,
+    };
+  }
+  // partial match — e.g. "sub.doubleclick.net" matches "doubleclick.net"
+  for (const [key, val] of Object.entries(TRACKER_DB)) {
+    if (domain.endsWith('.' + key) || domain === key) {
+      return {
+        company: val.company,
+        type:    val.type,
+        purpose: val.purpose || `${val.category || val.type} tracker`,
+      };
+    }
+  }
+  // fallback to built-in list
+  if (BUILTIN_DB[domain]) return BUILTIN_DB[domain];
+  return { company: domain, type: 'unknown', purpose: 'No information available for this domain' };
 }
-
 
 function nodeColor(type) {
   const colors = {
@@ -475,7 +308,6 @@ function nodeColor(type) {
     cdn:        '#6b7280',
     unknown:    '#64748b',
     tracker:    '#ef4444',  // fallback for unclassified trackers
-    'stored-root': '#eab308',
   };
   return colors[type] || colors.unknown;
 }
@@ -500,7 +332,7 @@ const zoomBehaviour = d3.zoom()
     }
     return !event.button;
   })
-  .wheelDelta(event => -event.deltaY * 0.0008)
+  .wheelDelta(event => -event.deltaY * 0.003)
   .on('zoom', (event) => g.attr('transform', event.transform));
 
 svg.call(zoomBehaviour);
@@ -515,16 +347,16 @@ const nodeGroup = g.append('g').attr('class', 'nodes');
 
 // force simulation
 const simulation = d3.forceSimulation()
-  .alphaDecay(0.05)       // settles faster (default is 0.0228)
-  .velocityDecay(0.4)     // more friction — nodes slow down quicker
-  .force('link',   d3.forceLink().id(d => d.id).distance(100))
-  .force('charge', d3.forceManyBody().strength(-300))
+  .alphaDecay(0.05)
+  .velocityDecay(0.5)
+  .force('link',   d3.forceLink().id(d => d.id).distance(45))
+  .force('charge', d3.forceManyBody().strength(-120))
   .force('center', d3.forceCenter(width / 2, height / 2))
-  .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 5));
+  .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 3));
 
 function nodeRadius(d) {
   // sites slightly bigger, size scales with connection count
-  const base = d.type === 'stored-root' ? 15 : (d.type === 'site' ? 12 : 8);
+  const base = d.type === 'site' ? 12 : 8;
   return base + Math.min(d.count || 1, 10);
 }
 
@@ -535,50 +367,29 @@ function showTooltip(event, d, edgeData) {
   let html = '';
 
   if (edgeData) {
-    if (edgeData.kind === 'existing') {
-      const targetId = edgeData.target.id || edgeData.target;
-      const info = classifyDomain(targetId);
-      html = `
-        <h3>Previously stored → ${targetId}</h3>
-        <div class="tt-row"><span>Tracker</span><span>${info.company}</span></div>
-        <div class="tt-row"><span>Baseline cookies</span><span>${edgeData.cookieCount || 1}</span></div>
-        <div class="tt-cookies">
-          <strong>What this means:</strong>
-          Cookies for this tracker domain were already present when this FreeFollowers browser session started. The original website that created them is not known retrospectively.
-        </div>
-      `;
-    } else {
-      const info = classifyDomain(edgeData.target.id || edgeData.target);
-      html = `
-        <h3>${edgeData.source.id || edgeData.source} → ${edgeData.target.id || edgeData.target}</h3>
-        <div class="tt-row"><span>Tracker</span><span>${info.company}</span></div>
-        <div class="tt-row"><span>Purpose</span><span>${info.purpose}</span></div>
-        ${edgeData.cookies && edgeData.cookies.length > 0 ? `
-          <div class="tt-cookies">
-            <strong>Cookies observed (${edgeData.cookies.length}):</strong>
-            ${edgeData.cookies.slice(0, 6).join(', ')}${edgeData.cookies.length > 6 ? '…' : ''}
-          </div>` : ''}
-      `;
-    }
-  } else if (d && d.type === 'stored-root') {
+    // hovering over an edge
+    const info = classifyDomain(edgeData.target.id || edgeData.target);
     html = `
-      <h3>Previously stored</h3>
-      <div class="tt-cookies">
-        This branch contains tracker-cookie domains that were already stored in the browser when this FreeFollowers session started. It does not claim which historical website created each cookie.
-      </div>
+      <h3>${edgeData.source.id || edgeData.source} → ${edgeData.target.id || edgeData.target}</h3>
+      <div class="tt-row"><span>Tracker</span><span>${info.company}</span></div>
+      <div class="tt-row"><span>Purpose</span><span>${info.purpose}</span></div>
+      ${edgeData.cookies && edgeData.cookies.length > 0 ? `
+        <div class="tt-cookies">
+          <strong>Cookies sent (${edgeData.cookies.length}):</strong>
+          ${edgeData.cookies.slice(0, 6).join(', ')}${edgeData.cookies.length > 6 ? '…' : ''}
+        </div>` : ''}
     `;
   } else {
+    // hovering over a node
     const info = classifyDomain(d.id);
     const typeLabel = { site:'Site you visited', advertiser:'Advertising tracker',
                         analytics:'Analytics', social:'Social media',
-                        cdn:'CDN / Functional', unknown:'Unknown tracker',
-                        tracker:'Tracker' };
+                        cdn:'CDN / Functional', unknown:'Unknown tracker' };
     html = `
       <h3>${info.company}</h3>
       <div class="tt-row"><span>Domain</span><span>${d.id}</span></div>
       <div class="tt-row"><span>Type</span><span>${typeLabel[info.type] || info.type}</span></div>
       <div class="tt-row"><span>Seen</span><span>${d.count || 1}×</span></div>
-      ${d.existingCookieCount ? `<div class="tt-row"><span>Baseline cookies</span><span>${d.existingCookieCount}</span></div>` : ''}
       <div class="tt-cookies">
         <strong>What they do:</strong>
         ${info.purpose}
@@ -608,118 +419,16 @@ function hideTooltip() {
 // ── graph rendering ───────────────────────────────────────────────────────────
 let currentNodes = [];
 let currentEdges = [];
-let latestGraphData = null;
-let graphMode = 'new';
-
-function normaliseExistingCookieDomains(raw) {
-  if (!Array.isArray(raw)) return [];
-
-  return raw.map(item => {
-    if (typeof item === 'string') return { domain: item, count: 1 };
-    return {
-      domain: String(item && item.domain || ''),
-      count: Number(item && item.count || 1)
-    };
-  }).filter(item => item.domain);
-}
-
-function buildDisplayData(data) {
-  const nodes = (data.nodes || []).map(n => ({ ...n }));
-  const edges = (data.edges || []).map(e => ({ ...e }));
-
-  if (graphMode !== 'all') return { nodes, edges };
-
-  const existing = normaliseExistingCookieDomains(data.existing_cookie_domains);
-  const knownById = new Map(nodes.map(n => [n.id, n]));
-  const baselineTrackers = [];
-
-  existing.forEach(item => {
-    const domain = item.domain
-      .trim()
-      .toLowerCase()
-      .replace(/^\./, '')
-      .replace(/^www\./, '');
-
-    const match = lookupTrackerDomain(domain);
-
-    // "All trackers" should not turn every login/preference cookie into a
-    // tracker. Only domains positively matched by Disconnect are added.
-    if (!match.matched || match.info.type === 'cdn') return;
-
-    baselineTrackers.push({ domain, count: item.count, info: match.info });
-  });
-
-  if (baselineTrackers.length === 0) return { nodes, edges };
-
-  const rootId = '__previously_stored__';
-  nodes.push({
-    id: rootId,
-    type: 'stored-root',
-    nodeType: 'stored-root',
-    company: 'Previously stored',
-    count: baselineTrackers.length
-  });
-
-  baselineTrackers.forEach(item => {
-    let node = knownById.get(item.domain);
-
-    if (!node) {
-      node = {
-        id: item.domain,
-        type: 'tracker',
-        count: 1,
-        source: 'existing'
-      };
-      nodes.push(node);
-      knownById.set(item.domain, node);
-    }
-
-    node.existingCookieCount = item.count;
-
-    edges.push({
-      id: `${rootId}→${item.domain}`,
-      source: rootId,
-      target: item.domain,
-      kind: 'existing',
-      cookieCount: item.count,
-      cookies: []
-    });
-  });
-
-  return { nodes, edges };
-}
-
-function setGraphMode(mode) {
-  graphMode = mode === 'all' ? 'all' : 'new';
-  document.getElementById('mode-new').classList.toggle('active', graphMode === 'new');
-  document.getElementById('mode-all').classList.toggle('active', graphMode === 'all');
-  document.getElementById('mode-note').textContent = graphMode === 'new'
-    ? 'New trackers = observed during this browser session'
-    : 'All trackers = this session + tracker-cookie domains already stored at session start';
-
-  prevNodeCount = -1;
-  prevEdgeCount = -1;
-
-  if (latestGraphData) updateGraph(latestGraphData);
-}
-
-document.getElementById('mode-new').addEventListener('click', () => setGraphMode('new'));
-document.getElementById('mode-all').addEventListener('click', () => setGraphMode('all'));
 
 // track previous counts to avoid unnecessary restarts
 let prevNodeCount = 0;
 let prevEdgeCount = 0;
 
 function updateGraph(data) {
-  latestGraphData = data;
-  const display = buildDisplayData(data);
-  let nodes = display.nodes;
-  const edges = display.edges;
+  let nodes = data.nodes || [];
+  const edges = data.edges || [];
 
-  if (nodes.length === 0) {
-    document.getElementById('waiting').classList.remove('hidden');
-    return;
-  }
+  if (nodes.length === 0) return;
 
   // ── filter out isolated nodes ─────────────────────────────────────────────
   // Only show nodes that either:
@@ -730,17 +439,14 @@ function updateGraph(data) {
     connectedIds.add(e.source.id || e.source);
     connectedIds.add(e.target.id || e.target);
   });
-  nodes = nodes.filter(n => n.type === 'site' || n.type === 'stored-root' || connectedIds.has(n.id));
+  nodes = nodes.filter(n => n.type === 'site' || connectedIds.has(n.id));
 
   // hide waiting message
   document.getElementById('waiting').classList.add('hidden');
 
   // enrich nodes with classification
   nodes.forEach(n => {
-    if (n.type === 'stored-root') {
-      n.nodeType = 'stored-root';
-      n.company = 'Previously stored';
-    } else if (n.type !== 'site') {
+    if (n.type !== 'site') {
       const info = classifyDomain(n.id);
       n.nodeType = info.type;
       n.company  = info.company;
@@ -754,7 +460,7 @@ function updateGraph(data) {
   document.getElementById('stat-sites').textContent =
     nodes.filter(n => n.type === 'site').length;
   document.getElementById('stat-trackers').textContent =
-    nodes.filter(n => n.type !== 'site' && n.type !== 'stored-root').length;
+    nodes.filter(n => n.type !== 'site').length;
   document.getElementById('stat-edges').textContent = edges.length;
 
   // preserve positions of existing nodes so graph doesn't jump
@@ -901,13 +607,9 @@ async function fetchGraph() {
   }
 }
 
-// Start graph polling immediately. Never wait for services.json.
+// fetch immediately, then every 2 seconds
 fetchGraph();
 setInterval(fetchGraph, 2000);
-
-// Load the larger Disconnect classification database separately.
-// If it fails, the graph still works with the built-in fallback list.
-loadTrackerDatabase();
 
 // ── resize handler ────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {

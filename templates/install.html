@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreeFollowers — Install the Extension</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --white: #ffffff;
+      --dim: rgba(255,255,255,0.55);
+      --dimmer: rgba(255,255,255,0.25);
+      --accent: #e63946;
+      --bg: #05050a;
+    }
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(5,5,10,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      padding: 0 40px;
+      z-index: 100;
+    }
+    nav .logo {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--dimmer);
+      text-decoration: none;
+    }
+
+    .container {
+      max-width: 580px;
+      width: 100%;
+      text-align: center;
+      margin-top: 56px;
+    }
+
+    /* ── detecting state ── */
+    #detecting {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #detecting p {
+      color: var(--dim);
+      font-size: 15px;
+    }
+
+    /* ── not installed state ── */
+    #not-installed { display: none; }
+    #not-installed h1 {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 14px;
+      line-height: 1.2;
+    }
+    #not-installed h1 span { color: var(--accent); }
+    #not-installed .subtitle {
+      color: var(--dim);
+      font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 48px;
+      max-width: 460px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* ── steps ── */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 40px;
+      text-align: left;
+    }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 18px 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 0;
+      transition: background 0.15s;
+    }
+    .step:first-child { border-radius: 8px 8px 0 0; }
+    .step:last-child  { border-radius: 0 0 8px 8px; }
+    .step:hover { background: rgba(255,255,255,0.05); }
+
+    .step-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: rgba(230,57,70,0.15);
+      border: 1px solid rgba(230,57,70,0.3);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .step-content { flex: 1; }
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+    .step-desc {
+      font-size: 13px;
+      color: var(--dim);
+      line-height: 1.6;
+    }
+    .step-desc code {
+      background: rgba(255,255,255,0.08);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 12px;
+      color: rgba(255,255,255,0.8);
+    }
+
+    /* ── download button ── */
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 36px;
+      background: var(--accent);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 4px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 0 32px rgba(230,57,70,0.35);
+      margin-bottom: 16px;
+    }
+    .btn-download:hover {
+      background: #c1121f;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 40px rgba(230,57,70,0.5);
+    }
+    .btn-download svg {
+      width: 18px; height: 18px;
+      fill: currentColor;
+    }
+
+    .note {
+      font-size: 12px;
+      color: var(--dimmer);
+      margin-top: 8px;
+    }
+
+    /* ── already installed state ── */
+    #already-installed { display: none; }
+    #already-installed .check {
+      font-size: 48px;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 0 16px rgba(30,200,80,0.5));
+    }
+    #already-installed h2 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    #already-installed p {
+      color: var(--dim);
+      font-size: 15px;
+      margin-bottom: 32px;
+    }
+    .btn-graph {
+      display: inline-block;
+      padding: 15px 36px;
+      background: var(--accent);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 4px;
+      text-decoration: none;
+      box-shadow: 0 0 32px rgba(230,57,70,0.35);
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-graph:hover {
+      background: #c1121f;
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">FreeFollowers</a>
+</nav>
+
+<div class="container">
+
+  <!-- STATE 1: detecting -->
+  <div id="detecting">
+    <div class="spinner"></div>
+    <p>Checking for extension…</p>
+  </div>
+
+  <!-- STATE 2: not installed -->
+  <div id="not-installed">
+    <h1>Install the <span>FreeFollowers</span><br>extension first</h1>
+    <p class="subtitle">
+      The extension watches network requests in your browser and builds
+      your tracker cloud in real time. It takes about 30 seconds to set up.
+    </p>
+
+    <div style="margin-bottom:28px;">
+      <a href="/static/freefollowers-extension.zip" class="btn-download" download>
+        <svg viewBox="0 0 24 24"><path d="M12 15l-4-4h3V4h2v7h3l-4 4zm-7 4v-2h14v2H5z"/></svg>
+        Download Extension
+      </a>
+      <p class="note">Works on Edge, Chrome and any Chromium browser · ~50KB</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Download and unzip</div>
+          <div class="step-desc">Click the button above and unzip the downloaded file to a folder on your computer.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Open your browser extensions</div>
+          <div class="step-desc">
+            In Edge: go to <code>edge://extensions</code><br>
+            In Chrome: go to <code>chrome://extensions</code>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Enable Developer mode</div>
+          <div class="step-desc">Toggle the <strong>Developer mode</strong> switch in the top right corner of the extensions page.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Load the extension</div>
+          <div class="step-desc">Click <strong>Load unpacked</strong> and select the unzipped folder. The FreeFollowers icon will appear in your toolbar.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Browse any website</div>
+          <div class="step-desc">Visit a few websites, then click the FreeFollowers icon in your toolbar — your tracker cloud opens automatically.</div>
+        </div>
+      </div>
+    </div>
+
+    <p class="note">Already installed? <a href="/" style="color:var(--accent);text-decoration:none;">Refresh this page</a> and we'll detect it automatically.</p>
+  </div>
+
+  <!-- STATE 3: already installed, redirect to graph -->
+  <div id="already-installed">
+    <div class="check">✓</div>
+    <h2>Extension detected!</h2>
+    <p>Taking you to your tracker cloud…</p>
+    <a id="graph-link" href="/graph/" class="btn-graph">Open my graph</a>
+  </div>
+
+</div>
+
+<script>
+
+// If the FreeFollowers extension is installed,
+// background.js will detect this /install page and redirect
+// the tab directly to /graph/<session>.
+//
+// Therefore, if we are STILL on this page after a short delay,
+// we can safely show the installation instructions.
+
+setTimeout(() => {
+
+  document.getElementById('detecting').style.display = 'none';
+  document.getElementById('not-installed').style.display = 'block';
+
+}, 1000);
+
+</script>
+
+</body>
+</html>

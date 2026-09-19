@@ -6,12 +6,12 @@
 //   - sends graph to Flask every 3 seconds
 //   - clicking icon goes to /install?session=ID
 // ─────────────────────────────────────────────────────────────────────────────
- 
+
 // Change this to your server URL when deployed
 const SERVER_URL = 'http://localhost:5000';
- 
+
 let SESSION_ID = null;
- 
+
 // ── SESSION ID ────────────────────────────────────────────────────────────────
 async function getOrCreateSessionId() {
   return new Promise((resolve) => {
@@ -31,14 +31,14 @@ async function getOrCreateSessionId() {
     });
   });
 }
- 
+
 // ── GRAPH DATA ────────────────────────────────────────────────────────────────
 const graph = { nodes: {}, edges: {} };
- 
+
 // ── VISITED SITES — domains you directly navigated to ─────────────────────────
 // These are always shown as blue "site" nodes, never as trackers
 const visitedSites = new Set();
- 
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url) {
     const domain = getRootDomain(tab.url);
@@ -49,7 +49,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
   }
 });
- 
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function getRootDomain(urlString) {
   try {
@@ -59,7 +59,7 @@ function getRootDomain(urlString) {
     return hostname;
   } catch (e) { return null; }
 }
- 
+
 function addNode(domain, type) {
   if (!domain) return;
   if (!graph.nodes[domain]) {
@@ -73,7 +73,7 @@ function addNode(domain, type) {
     }
   }
 }
- 
+
 function addEdge(source, target, cookieName = null) {
   if (!source || !target || source === target) return;
   const edgeId = `${source}||${target}`;
@@ -90,7 +90,7 @@ function addEdge(source, target, cookieName = null) {
     }
   }
 }
- 
+
 // ── NETWORK REQUEST LISTENER ──────────────────────────────────────────────────
 function startRequestListener() {
   chrome.webRequest.onBeforeSendHeaders.addListener(
@@ -98,21 +98,21 @@ function startRequestListener() {
       if (details.tabId === -1) return;
       if (details.url.startsWith('chrome-extension://')) return;
       if (details.url.startsWith('moz-extension://')) return;
- 
+
       const sourceDomain = details.initiator ? getRootDomain(details.initiator) : null;
       const targetDomain = getRootDomain(details.url);
       if (!sourceDomain || !targetDomain) return;
- 
+
       // Use 'site' if directly navigated to, otherwise 'tracker'
       const sourceType = visitedSites.has(sourceDomain) ? 'site' : 'tracker';
       addNode(sourceDomain, sourceType);
- 
+
       if (sourceDomain !== targetDomain) {
         const targetType = visitedSites.has(targetDomain) ? 'site' : 'tracker';
         addNode(targetDomain, targetType);
         addEdge(sourceDomain, targetDomain);
       }
- 
+
       if (details.requestHeaders) {
         for (const header of details.requestHeaders) {
           if (header.name.toLowerCase() === 'cookie') {
@@ -128,7 +128,7 @@ function startRequestListener() {
   );
   console.log('[FreeFollowers] Request listener active.');
 }
- 
+
 // ── READ EXISTING COOKIES ─────────────────────────────────────────────────────
 async function readExistingCookies() {
   chrome.cookies.getAll({}, (cookies) => {
@@ -140,7 +140,7 @@ async function readExistingCookies() {
     }
   });
 }
- 
+
 // ── SEND TO FLASK ─────────────────────────────────────────────────────────────
 function getGraphAsJson() {
   return {
@@ -150,7 +150,7 @@ function getGraphAsJson() {
     timestamp:  new Date().toISOString()
   };
 }
- 
+
 async function sendToServer() {
   const graphData = getGraphAsJson();
   if (graphData.nodes.length === 0) return;
@@ -169,7 +169,7 @@ async function sendToServer() {
     console.warn('[FreeFollowers] Could not reach server:', err.message);
   }
 }
- 
+
 // ── CLICK ICON → INSTALL/GRAPH PAGE ──────────────────────────────────────────
 // Goes to /install?session=ID — install page detects extension and redirects
 chrome.action.onClicked.addListener(() => {
@@ -177,96 +177,21 @@ chrome.action.onClicked.addListener(() => {
   chrome.tabs.create({ url: url });
   console.log(`[FreeFollowers] Opening: ${url}`);
 });
- 
+
 self.getGraph = () => {
   const g = getGraphAsJson();
   console.log(JSON.stringify(g, null, 2));
   return g;
 };
- 
-// ── INSTALL PAGE DETECTION ────────────────────────────────────────────────────
-
-function isFreeFollowersInstallPage(url) {
-  if (!url) return false;
-
-  try {
-    const parsed = new URL(url);
-
-    return (
-      (parsed.hostname === '127.0.0.1' ||
-       parsed.hostname === 'localhost') &&
-      parsed.port === '5000' &&
-      parsed.pathname === '/install'
-    );
-  } catch (_) {
-    return false;
-  }
-}
-
-
-function redirectInstallTab(tabId) {
-  if (!SESSION_ID) {
-    console.log('[FreeFollowers] Session ID not ready yet.');
-    return;
-  }
-
-  console.log(
-    '[FreeFollowers] Extension detected install page. Opening graph:',
-    SESSION_ID
-  );
-
-  chrome.tabs.update(tabId, {
-    url: `http://127.0.0.1:5000/graph/${SESSION_ID}`
-  });
-}
-
-
-// Detect whenever /install is opened
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  const url = changeInfo.url || tab.url;
-
-  if (isFreeFollowersInstallPage(url)) {
-    redirectInstallTab(tabId);
-  }
-});
-
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-
 async function init() {
   console.log('[FreeFollowers] Starting...');
-
   await getOrCreateSessionId();
-
-  console.log(`[FreeFollowers] Session ready: ${SESSION_ID}`);
-
   startRequestListener();
-
   await readExistingCookies();
-
   setInterval(sendToServer, 3000);
-
-
-  // IMPORTANT:
-  // Check whether /install is ALREADY open.
-  // This fixes the case where the extension was reloaded
-  // while the user was already sitting on the install page.
-  const tabs = await chrome.tabs.query({});
-
-  for (const tab of tabs) {
-    if (
-      tab.id !== undefined &&
-      isFreeFollowersInstallPage(tab.url)
-    ) {
-      redirectInstallTab(tab.id);
-    }
-  }
-
-
   console.log(`[FreeFollowers] Ready. Session: ${SESSION_ID}`);
 }
 
-
-init().catch(err => {
-  console.error('[FreeFollowers] Init failed:', err);
-});
+init();
