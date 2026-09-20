@@ -3,6 +3,7 @@
   "name": "FreeFollowers",
   "version": "0.3.0",
   "description": "Visualise trackers and cookie-bearing third parties you encounter while browsing.",
+  "homepage_url": "https://freefollowers.ch",
   "permissions": [
     "webRequest",
     "cookies",
@@ -16,6 +17,15 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Open FreeFollowers"
+    "default_title": "Open FreeFollowers",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png"
+    }
+  },
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
   }
 }
